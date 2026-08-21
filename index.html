@@ -68,6 +68,12 @@
         </div>
 
         <div class="card">
+            <label>Step 1: Create a Test Listing</label>
+            <button id="createBtn">Create Test Listing (Mario Kart 8)</button>
+            <div id="createStatus" class="status"></div>
+        </div>
+
+        <div class="card">
             <label>Test Item ID</label>
             <input type="text" id="testItemId" value="128032561397" placeholder="eBay Item ID">
             <label>New Quantity</label>
@@ -86,6 +92,59 @@
         const appId = "NathanCo-eBayQuan-SBX-c013d68a0-28c33685";
         const devId = "590eb9e5-bedb-4ccf-84c3-23739e389f3d";
         const certId = "SBX-013d68a02898-52fb-4d89-97c4-16b9";
+
+        document.getElementById('createBtn').addEventListener('click', async () => {
+            const authToken = document.getElementById('authToken').value.trim();
+            const statusEl = document.getElementById('createStatus');
+            const btn = document.getElementById('createBtn');
+
+            if (!authToken) {
+                statusEl.textContent = 'Please paste your Sandbox OAuth token first';
+                statusEl.className = 'status show error';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Creating...';
+            statusEl.className = 'status show';
+            statusEl.textContent = 'Creating test listing on eBay Sandbox...';
+
+            try {
+                const response = await fetch('/api/ebay-sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'addItem', quantity: 10, authToken, appId, devId, certId })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const itemIdMatch = result.response.match(/<ItemID>(\d+)<\/ItemID>/);
+                    if (itemIdMatch) {
+                        const newItemId = itemIdMatch[1];
+                        document.getElementById('testItemId').value = newItemId;
+                        statusEl.textContent = `Success! Created Item ID: ${newItemId}`;
+                        statusEl.className = 'status show success';
+                    } else {
+                        statusEl.textContent = 'Response received but no Item ID found - check details below';
+                        statusEl.className = 'status show error';
+                        const resultsCard = document.getElementById('resultsCard');
+                        const resultsList = document.getElementById('resultsList');
+                        resultsCard.style.display = 'block';
+                        resultsList.innerHTML = `<div class="result-item error"><pre style="white-space: pre-wrap; font-size: 10px;">${result.response}</pre></div>`;
+                    }
+                } else {
+                    statusEl.textContent = `Failed: ${result.error}`;
+                    statusEl.className = 'status show error';
+                }
+            } catch (err) {
+                statusEl.textContent = `Error: ${err.message}`;
+                statusEl.className = 'status show error';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Create Test Listing (Mario Kart 8)';
+            }
+        });
 
         document.getElementById('testBtn').addEventListener('click', async () => {
             const authToken = document.getElementById('authToken').value.trim();
