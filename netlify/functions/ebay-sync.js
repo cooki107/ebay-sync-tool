@@ -46,8 +46,7 @@ exports.handler = async function(event, context) {
         <Quantity>${quantity || 10}</Quantity>
         <ReturnPolicy>
             <ReturnsAcceptedOption>ReturnsAccepted</ReturnsAcceptedOption>
-            <RefundOption>MoneyBack</RefundOption>
-            <ReturnsWithinOption>Days30</ReturnsWithinOption>
+            <ReturnsWithinOption>Days_30</ReturnsWithinOption>
             <ShippingCostPaidByOption>Buyer</ShippingCostPaidByOption>
         </ReturnPolicy>
         <ShippingDetails>
