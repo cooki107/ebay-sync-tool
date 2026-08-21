@@ -29,6 +29,7 @@ exports.handler = async function(event, context) {
       'X-EBAY-API-APP-ID': appId,
       'X-EBAY-API-DEV-ID': devId,
       'X-EBAY-API-COMPATIBILITY-LEVEL': '967',
+      'X-EBAY-API-SITEID': '3',
       'Content-Type': 'text/xml',
       'Content-Length': Buffer.byteLength(xmlRequest)
     }
