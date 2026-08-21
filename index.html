@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="eBay Sync">
+    <title>eBay Quantity Sync</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f8fafc;
+            padding: 16px;
+        }
+        .container { max-width: 500px; margin: 0 auto; }
+        h1 { font-size: 24px; margin-bottom: 8px; }
+        .subtitle { color: #64748b; font-size: 14px; margin-bottom: 24px; }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        input[type="file"], input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:disabled { background: #ccc; }
+        .status { margin-top: 8px; padding: 10px; border-radius: 6px; font-size: 12px; display: none; }
+        .status.show { display: block; }
+        .status.success { background: #ecfdf5; color: #059669; }
+        .status.error { background: #fee; color: #c33; }
+        table { width: 100%; font-size: 12px; margin: 12px 0; }
+        th { text-align: left; padding: 8px 0; border-bottom: 1px solid #eee; }
+        td { padding: 8px 0; border-bottom: 1px solid #f5f5f5; }
+        .result-item { padding: 10px; margin-bottom: 6px; border-radius: 6px; font-size: 12px; }
+        .result-item.success { background: #ecfdf5; border-left: 3px solid #059669; }
+        .result-item.error { background: #fee; border-left: 3px solid #c33; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>eBay Sync (Sandbox Test)</h1>
+        <p class="subtitle">Real API test - Sandbox environment</p>
+
+        <div class="card">
+            <label>Sandbox OAuth Token</label>
+            <input type="text" id="authToken" placeholder="Paste your Sandbox token here">
+            <div style="font-size: 11px; color: #999;">This stays in your browser only, never saved.</div>
+        </div>
+
+        <div class="card">
+            <label>Test Item ID</label>
+            <input type="text" id="testItemId" value="128032561397" placeholder="eBay Item ID">
+            <label>New Quantity</label>
+            <input type="text" id="testQty" value="5" placeholder="Quantity">
+            <button id="testBtn">Test Single Sync</button>
+            <div id="status" class="status"></div>
+        </div>
+
+        <div id="resultsCard" class="card" style="display:none;">
+            <h3 style="font-size: 14px; margin-bottom: 8px;">Result</h3>
+            <div id="resultsList"></div>
+        </div>
+    </div>
+
+    <script>
+        const appId = "NathanCo-eBayQuan-SBX-c013d68a0-28c33685";
+        const devId = "590eb9e5-bedb-4ccf-84c3-23739e389f3d";
+        const certId = "SBX-013d68a02898-52fb-4d89-97c4-16b9";
+
+        document.getElementById('testBtn').addEventListener('click', async () => {
+            const authToken = document.getElementById('authToken').value.trim();
+            const itemId = document.getElementById('testItemId').value.trim();
+            const quantity = document.getElementById('testQty').value.trim();
+            const statusEl = document.getElementById('status');
+            const btn = document.getElementById('testBtn');
+
+            if (!authToken) {
+                statusEl.textContent = 'Please paste your Sandbox OAuth token first';
+                statusEl.className = 'status show error';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Testing...';
+            statusEl.className = 'status show';
+            statusEl.textContent = 'Calling eBay Sandbox via Netlify function...';
+
+            try {
+                const response = await fetch('/api/ebay-sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itemId, quantity, authToken, appId, devId, certId })
+                });
+
+                const result = await response.json();
+                
+                const resultsCard = document.getElementById('resultsCard');
+                const resultsList = document.getElementById('resultsList');
+                resultsCard.style.display = 'block';
+
+                if (result.success) {
+                    const isSuccess = result.response.includes('<Ack>Success</Ack>') || result.response.includes('<Ack>Warning</Ack>');
+                    resultsList.innerHTML = `
+                        <div class="result-item ${isSuccess ? 'success' : 'error'}">
+                            <strong>HTTP Status: ${result.httpStatus}</strong>
+                            <pre style="white-space: pre-wrap; font-size: 10px; margin-top: 8px;">${result.response.substring(0, 1000)}</pre>
+                        </div>
+                    `;
+                    statusEl.textContent = isSuccess ? 'Success! Check result below.' : 'Got a response - check details below.';
+                    statusEl.className = `status show ${isSuccess ? 'success' : 'error'}`;
+                } else {
+                    resultsList.innerHTML = `<div class="result-item error"><strong>Error:</strong> ${result.error}</div>`;
+                    statusEl.textContent = 'Failed - see details below';
+                    statusEl.className = 'status show error';
+                }
+            } catch (err) {
+                statusEl.textContent = `Error: ${err.message}`;
+                statusEl.className = 'status show error';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Test Single Sync';
+            }
+        });
+    </script>
+</body>
+</html>
