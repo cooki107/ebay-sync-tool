@@ -5,9 +5,54 @@ exports.handler = async function(event, context) {
     return { statusCode: 405, body: 'Method not allowed' };
   }
 
-  const { itemId, quantity, authToken, appId, devId, certId } = JSON.parse(event.body);
+  const { action, itemId, quantity, authToken, appId, devId, certId } = JSON.parse(event.body);
 
-  const xmlRequest = `<?xml version="1.0" encoding="utf-8"?>
+  let xmlRequest, callName;
+
+  if (action === 'addItem') {
+    callName = 'AddItem';
+    xmlRequest = `<?xml version="1.0" encoding="utf-8"?>
+<AddItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+    <RequesterCredentials>
+        <eBayAuthToken>${authToken}</eBayAuthToken>
+    </RequesterCredentials>
+    <Item>
+        <Title>Test Item - Mario Kart 8</Title>
+        <Description>This is a test listing created via API for sync testing.</Description>
+        <PrimaryCategory>
+            <CategoryID>139973</CategoryID>
+        </PrimaryCategory>
+        <StartPrice>10.00</StartPrice>
+        <ConditionID>1000</ConditionID>
+        <Country>GB</Country>
+        <Currency>GBP</Currency>
+        <DispatchTimeMax>3</DispatchTimeMax>
+        <ListingDuration>GTC</ListingDuration>
+        <ListingType>FixedPriceItem</ListingType>
+        <PaymentMethods>PayPal</PaymentMethods>
+        <PayPalEmailAddress>test@example.com</PayPalEmailAddress>
+        <PictureDetails>
+            <PictureURL>https://i.ebayimg.com/images/g/default/s-l500.jpg</PictureURL>
+        </PictureDetails>
+        <PostalCode>PR25 3NF</PostalCode>
+        <Quantity>${quantity || 10}</Quantity>
+        <ReturnPolicy>
+            <ReturnsAcceptedOption>ReturnsNotAccepted</ReturnsAcceptedOption>
+        </ReturnPolicy>
+        <ShippingDetails>
+            <ShippingType>Flat</ShippingType>
+            <ShippingServiceOptions>
+                <ShippingServicePriority>1</ShippingServicePriority>
+                <ShippingService>UK_RoyalMailFirstClassStandard</ShippingService>
+                <ShippingServiceCost>2.99</ShippingServiceCost>
+            </ShippingServiceOptions>
+        </ShippingDetails>
+        <Site>UK</Site>
+    </Item>
+</AddItemRequest>`;
+  } else {
+    callName = 'ReviseItem';
+    xmlRequest = `<?xml version="1.0" encoding="utf-8"?>
 <ReviseItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
     <RequesterCredentials>
         <eBayAuthToken>${authToken}</eBayAuthToken>
@@ -18,13 +63,14 @@ exports.handler = async function(event, context) {
     </Item>
     <ErrorLanguage>en_US</ErrorLanguage>
 </ReviseItemRequest>`;
+  }
 
   const options = {
     hostname: 'api.sandbox.ebay.com',
     path: '/ws/api.dll',
     method: 'POST',
     headers: {
-      'X-EBAY-API-CALL-NAME': 'ReviseItem',
+      'X-EBAY-API-CALL-NAME': callName,
       'X-EBAY-API-CERT-ID': certId,
       'X-EBAY-API-APP-ID': appId,
       'X-EBAY-API-DEV-ID': devId,
