@@ -22,6 +22,16 @@ exports.handler = async function(event, context) {
         <PrimaryCategory>
             <CategoryID>139973</CategoryID>
         </PrimaryCategory>
+        <ItemSpecifics>
+            <NameValueList>
+                <Name>Platform</Name>
+                <Value>Nintendo Switch</Value>
+            </NameValueList>
+            <NameValueList>
+                <Name>Game Name</Name>
+                <Value>Mario Kart 8</Value>
+            </NameValueList>
+        </ItemSpecifics>
         <StartPrice>10.00</StartPrice>
         <ConditionID>1000</ConditionID>
         <Country>GB</Country>
@@ -29,15 +39,16 @@ exports.handler = async function(event, context) {
         <DispatchTimeMax>3</DispatchTimeMax>
         <ListingDuration>GTC</ListingDuration>
         <ListingType>FixedPriceItem</ListingType>
-        <PaymentMethods>PayPal</PaymentMethods>
-        <PayPalEmailAddress>test@example.com</PayPalEmailAddress>
         <PictureDetails>
             <PictureURL>https://i.ebayimg.com/images/g/default/s-l500.jpg</PictureURL>
         </PictureDetails>
         <PostalCode>PR25 3NF</PostalCode>
         <Quantity>${quantity || 10}</Quantity>
         <ReturnPolicy>
-            <ReturnsAcceptedOption>ReturnsNotAccepted</ReturnsAcceptedOption>
+            <ReturnsAcceptedOption>ReturnsAccepted</ReturnsAcceptedOption>
+            <RefundOption>MoneyBack</RefundOption>
+            <ReturnsWithinOption>Days30</ReturnsWithinOption>
+            <ShippingCostPaidByOption>Buyer</ShippingCostPaidByOption>
         </ReturnPolicy>
         <ShippingDetails>
             <ShippingType>Flat</ShippingType>
