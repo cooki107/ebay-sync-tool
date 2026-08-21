@@ -1,204 +1,256 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="eBay Sync">
-    <title>eBay Quantity Sync</title>
+    <meta name="theme-color" content="#0066cc">
+    <title>NGLH eBay Sync</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        :root {
+            --primary: #0066cc; --primary-dark: #0052a3; --success: #059669;
+            --success-light: #ecfdf5; --danger: #dc2626; --danger-light: #fef2f2;
+            --bg: #f8fafc; --surface: #ffffff; --border: #e2e8f0;
+            --text: #1e293b; --text-secondary: #64748b; --text-muted: #94a3b8;
+        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: #f8fafc;
-            padding: 16px;
+            background: var(--bg); color: var(--text); padding: 16px;
         }
-        .container { max-width: 500px; margin: 0 auto; }
-        h1 { font-size: 24px; margin-bottom: 8px; }
-        .subtitle { color: #64748b; font-size: 14px; margin-bottom: 24px; }
+        .container { max-width: 560px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 24px; }
+        .logo {
+            width: 56px; height: 56px; margin: 0 auto 12px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 16px; display: flex; align-items: center; justify-content: center;
+            font-size: 28px; box-shadow: 0 6px 14px rgba(0,102,204,0.2);
+        }
+        h1 { font-size: 24px; font-weight: 700; }
+        .subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
         .card {
-            background: white;
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            background: var(--surface); border-radius: 14px; padding: 18px;
+            margin-bottom: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid var(--border);
         }
+        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
         input[type="file"], input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-            margin-bottom: 8px;
+            width: 100%; padding: 10px; border: 1px solid var(--border);
+            border-radius: 8px; font-size: 14px; margin-bottom: 8px;
         }
-        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+        .hint { font-size: 11px; color: var(--text-muted); }
         button {
-            width: 100%;
-            padding: 12px;
-            background: #0066cc;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
+            width: 100%; padding: 13px; font-size: 15px; font-weight: 600;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white; border: none; border-radius: 10px; cursor: pointer;
         }
-        button:disabled { background: #ccc; }
-        .status { margin-top: 8px; padding: 10px; border-radius: 6px; font-size: 12px; display: none; }
+        button:disabled { background: var(--text-muted); }
+        button.secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
+        .status { margin-top: 10px; padding: 10px; border-radius: 8px; font-size: 12px; display: none; }
         .status.show { display: block; }
-        .status.success { background: #ecfdf5; color: #059669; }
-        .status.error { background: #fee; color: #c33; }
-        table { width: 100%; font-size: 12px; margin: 12px 0; }
-        th { text-align: left; padding: 8px 0; border-bottom: 1px solid #eee; }
-        td { padding: 8px 0; border-bottom: 1px solid #f5f5f5; }
-        .result-item { padding: 10px; margin-bottom: 6px; border-radius: 6px; font-size: 12px; }
-        .result-item.success { background: #ecfdf5; border-left: 3px solid #059669; }
-        .result-item.error { background: #fee; border-left: 3px solid #c33; }
+        .status.success { background: var(--success-light); color: var(--success); }
+        .status.error { background: var(--danger-light); color: var(--danger); }
+        table { width: 100%; font-size: 12px; border-collapse: collapse; margin: 10px 0; }
+        th { text-align: left; padding: 8px 4px; border-bottom: 1px solid var(--border); color: var(--text-secondary); font-size: 11px; text-transform: uppercase; }
+        td { padding: 8px 4px; border-bottom: 1px solid var(--border); }
+        .change-pos { color: var(--success); font-weight: 600; }
+        .change-neg { color: var(--danger); font-weight: 600; }
+        .change-zero { color: var(--text-muted); }
+        .row-status { font-size: 10px; padding: 2px 6px; border-radius: 4px; }
+        .row-status.pending { background: #fef3c7; color: #92400e; }
+        .row-status.done { background: var(--success-light); color: var(--success); }
+        .row-status.failed { background: var(--danger-light); color: var(--danger); }
+        .hidden { display: none !important; }
+        .summary-count { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>eBay Sync (Sandbox Test)</h1>
-        <p class="subtitle">Real API test - Sandbox environment</p>
+        <header>
+            <div class="logo">⚡</div>
+            <h1>NGLH eBay Sync</h1>
+            <p class="subtitle">Sandbox testing - full inventory sync</p>
+        </header>
 
         <div class="card">
             <label>Sandbox OAuth Token</label>
             <input type="text" id="authToken" placeholder="Paste your Sandbox token here">
-            <div style="font-size: 11px; color: #999;">This stays in your browser only, never saved.</div>
+            <div class="hint">Stays in your browser only, never saved anywhere.</div>
         </div>
 
         <div class="card">
-            <label>Step 1: Create a Test Listing</label>
-            <button id="createBtn">Create Test Listing (Mario Kart 8)</button>
-            <div id="createStatus" class="status"></div>
+            <label>Upload Rv Companion XLSX</label>
+            <input type="file" id="fileInput" accept=".xlsx,.xls">
+            <div id="uploadStatus" class="status"></div>
         </div>
 
-        <div class="card">
-            <label>Test Item ID</label>
-            <input type="text" id="testItemId" value="128032561397" placeholder="eBay Item ID">
-            <label>New Quantity</label>
-            <input type="text" id="testQty" value="5" placeholder="Quantity">
-            <button id="testBtn">Test Single Sync</button>
-            <div id="status" class="status"></div>
-        </div>
-
-        <div id="resultsCard" class="card" style="display:none;">
-            <h3 style="font-size: 14px; margin-bottom: 8px;">Result</h3>
-            <div id="resultsList"></div>
+        <div id="analysisCard" class="card hidden">
+            <label>Games Ready to Sync</label>
+            <div class="summary-count" id="summaryCount"></div>
+            <table>
+                <thead><tr><th>Game</th><th>Rv Qty</th><th>Status</th></tr></thead>
+                <tbody id="analysisTable"></tbody>
+            </table>
+            <button id="syncAllBtn">Sync All to eBay (Sandbox)</button>
+            <div id="syncStatus" class="status"></div>
         </div>
     </div>
 
+    <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
         const appId = "NathanCo-eBayQuan-SBX-c013d68a0-28c33685";
         const devId = "590eb9e5-bedb-4ccf-84c3-23739e389f3d";
         const certId = "SBX-013d68a02898-52fb-4d89-97c4-16b9";
 
-        document.getElementById('createBtn').addEventListener('click', async () => {
-            const authToken = document.getElementById('authToken').value.trim();
-            const statusEl = document.getElementById('createStatus');
-            const btn = document.getElementById('createBtn');
+        const titleMapping = {
+          'Animal Crossing': '128032384253',
+          'Animal Crossing Cartridge': '127954148871',
+          'Luigis Mansion 3': '128032385043',
+          'Mario Kart 8': '128032381763',
+          'Mario Kart 8 Cartridge': '128032384109',
+          'Pokemon Arceus': '127907257328',
+          'Pokemon Arceus Cartridge': '127916388908',
+          'Princess Peach Showtime': '127935957482',
+          'Princess Peach Showtime Cartridge': '127992249046',
+          'Super Mario 3D Allstars': '127951567807',
+          'Super Mario 3D Allstars Cartridge': '128013972085',
+          'Super Mario U Deluxe': '127907346508',
+          'Super Mario Wonder': '127940340265',
+          'Super Mario Wonder Cartridge': '128017583742',
+          'Super Mario Odyssey': '127916232402',
+          'Super Mario Odyssey Cartridge': '128032561397',
+          'Super Mario Jamboree': '127992258497',
+          'Super Smash Bros': '127923383109',
+          'Super Smash Bros Cartridge': '127916387430',
+          'Zelda Links Awakening': '127967561009',
+          'Zelda Links Awakening Cartridge': '127927213642',
+          'Zelda Breath of the wild': '127925580095',
+          'Zelda Breath of the wild Cartridge': '128013967400',
+          'Zelda Tears of the kingdom': '128017580568',
+          'Mario and Sonic Olympic Games': '128031128860'
+        };
 
-            if (!authToken) {
-                statusEl.textContent = 'Please paste your Sandbox OAuth token first';
-                statusEl.className = 'status show error';
-                return;
-            }
+        let currentSyncData = {};
 
-            btn.disabled = true;
-            btn.textContent = 'Creating...';
+        document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const statusEl = document.getElementById('uploadStatus');
             statusEl.className = 'status show';
-            statusEl.textContent = 'Creating test listing on eBay Sandbox...';
+            statusEl.textContent = 'Reading file...';
 
-            try {
-                const response = await fetch('/api/ebay-sync', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'addItem', quantity: 10, authToken, appId, devId, certId })
-                });
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const data = new Uint8Array(event.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const worksheet = workbook.Sheets['Inventory'];
+                    if (!worksheet) throw new Error('Inventory sheet not found');
 
-                const result = await response.json();
+                    const rows = XLSX.utils.sheet_to_json(worksheet);
+                    const listedItems = rows.filter(row => row.status === 'listed');
+                    if (listedItems.length === 0) throw new Error('No items with status "listed" found');
 
-                if (result.success) {
-                    const itemIdMatch = result.response.match(/<ItemID>(\d+)<\/ItemID>/);
-                    if (itemIdMatch) {
-                        const newItemId = itemIdMatch[1];
-                        document.getElementById('testItemId').value = newItemId;
-                        statusEl.textContent = `Success! Created Item ID: ${newItemId}`;
-                        statusEl.className = 'status show success';
-                    } else {
-                        statusEl.textContent = 'Response received but no Item ID found - check details below';
-                        statusEl.className = 'status show error';
-                        const resultsCard = document.getElementById('resultsCard');
-                        const resultsList = document.getElementById('resultsList');
-                        resultsCard.style.display = 'block';
-                        resultsList.innerHTML = `<div class="result-item error"><pre style="white-space: pre-wrap; font-size: 10px;">${result.response}</pre></div>`;
+                    const titleCounts = {};
+                    listedItems.forEach(item => {
+                        const name = item.item_name;
+                        if (name) titleCounts[name] = (titleCounts[name] || 0) + 1;
+                    });
+
+                    const syncData = {};
+                    Object.entries(titleMapping).forEach(([title, itemId]) => {
+                        if (titleCounts[title]) {
+                            syncData[itemId] = { name: title, quantity: titleCounts[title] };
+                        }
+                    });
+
+                    if (Object.keys(syncData).length === 0) {
+                        throw new Error('No matching games found in your inventory');
                     }
-                } else {
-                    statusEl.textContent = `Failed: ${result.error}`;
-                    statusEl.className = 'status show error';
-                }
-            } catch (err) {
-                statusEl.textContent = `Error: ${err.message}`;
-                statusEl.className = 'status show error';
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Create Test Listing (Mario Kart 8)';
-            }
-        });
 
-        document.getElementById('testBtn').addEventListener('click', async () => {
+                    currentSyncData = syncData;
+                    displayAnalysis(syncData);
+                    statusEl.className = 'status show success';
+                    statusEl.textContent = `Loaded ${listedItems.length} listed items successfully`;
+                } catch (err) {
+                    statusEl.className = 'status show error';
+                    statusEl.textContent = `Error: ${err.message}`;
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function displayAnalysis(data) {
+            document.getElementById('summaryCount').textContent = `${Object.keys(data).length} games ready to sync`;
+            const tbody = document.getElementById('analysisTable');
+            tbody.innerHTML = '';
+            Object.entries(data).forEach(([itemId, info]) => {
+                const row = document.createElement('tr');
+                row.id = `row-${itemId}`;
+                row.innerHTML = `
+                    <td>${info.name}</td>
+                    <td>${info.quantity}</td>
+                    <td><span class="row-status pending" id="status-${itemId}">Pending</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+            document.getElementById('analysisCard').classList.remove('hidden');
+        }
+
+        document.getElementById('syncAllBtn').addEventListener('click', async () => {
             const authToken = document.getElementById('authToken').value.trim();
-            const itemId = document.getElementById('testItemId').value.trim();
-            const quantity = document.getElementById('testQty').value.trim();
-            const statusEl = document.getElementById('status');
-            const btn = document.getElementById('testBtn');
+            const syncStatusEl = document.getElementById('syncStatus');
+            const btn = document.getElementById('syncAllBtn');
 
             if (!authToken) {
-                statusEl.textContent = 'Please paste your Sandbox OAuth token first';
-                statusEl.className = 'status show error';
+                syncStatusEl.className = 'status show error';
+                syncStatusEl.textContent = 'Please paste your Sandbox token first';
                 return;
             }
 
             btn.disabled = true;
-            btn.textContent = 'Testing...';
-            statusEl.className = 'status show';
-            statusEl.textContent = 'Calling eBay Sandbox via Netlify function...';
+            const entries = Object.entries(currentSyncData);
+            let successCount = 0;
+            let failCount = 0;
 
-            try {
-                const response = await fetch('/api/ebay-sync', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ itemId, quantity, authToken, appId, devId, certId })
-                });
+            for (const [itemId, info] of entries) {
+                btn.textContent = `Syncing ${successCount + failCount + 1}/${entries.length}...`;
+                const statusBadge = document.getElementById(`status-${itemId}`);
 
-                const result = await response.json();
-                
-                const resultsCard = document.getElementById('resultsCard');
-                const resultsList = document.getElementById('resultsList');
-                resultsCard.style.display = 'block';
+                try {
+                    const response = await fetch('/api/ebay-sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ itemId, quantity: info.quantity, authToken, appId, devId, certId })
+                    });
+                    const result = await response.json();
+                    const isSuccess = result.success && result.response.includes('<Ack>Success</Ack>');
 
-                if (result.success) {
-                    const isSuccess = result.response.includes('<Ack>Success</Ack>') || result.response.includes('<Ack>Warning</Ack>');
-                    resultsList.innerHTML = `
-                        <div class="result-item ${isSuccess ? 'success' : 'error'}">
-                            <strong>HTTP Status: ${result.httpStatus}</strong>
-                            <pre style="white-space: pre-wrap; font-size: 10px; margin-top: 8px;">${result.response.substring(0, 1000)}</pre>
-                        </div>
-                    `;
-                    statusEl.textContent = isSuccess ? 'Success! Check result below.' : 'Got a response - check details below.';
-                    statusEl.className = `status show ${isSuccess ? 'success' : 'error'}`;
-                } else {
-                    resultsList.innerHTML = `<div class="result-item error"><strong>Error:</strong> ${result.error}</div>`;
-                    statusEl.textContent = 'Failed - see details below';
-                    statusEl.className = 'status show error';
+                    if (isSuccess) {
+                        statusBadge.className = 'row-status done';
+                        statusBadge.textContent = 'Synced';
+                        successCount++;
+                    } else {
+                        statusBadge.className = 'row-status failed';
+                        statusBadge.textContent = 'Failed';
+                        failCount++;
+                    }
+                } catch (err) {
+                    statusBadge.className = 'row-status failed';
+                    statusBadge.textContent = 'Error';
+                    failCount++;
                 }
-            } catch (err) {
-                statusEl.textContent = `Error: ${err.message}`;
-                statusEl.className = 'status show error';
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Test Single Sync';
             }
+
+            btn.disabled = false;
+            btn.textContent = 'Sync All to eBay (Sandbox)';
+            syncStatusEl.className = `status show ${failCount === 0 ? 'success' : 'error'}`;
+            syncStatusEl.textContent = `Complete: ${successCount} synced, ${failCount} failed`;
         });
     </script>
 </body>
