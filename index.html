@@ -218,16 +218,32 @@
                     const listedItems = rows.filter(row => row.status === 'listed');
                     if (listedItems.length === 0) throw new Error('No items with status "listed" found');
 
+                    // Normalize titles so apostrophes ('/'), dashes (-/–/—), extra spaces,
+                    // and casing never cause a false "not found" mismatch again.
+                    function normalizeTitle(str) {
+                        return str
+                            .toLowerCase()
+                            .replace(/['\u2019]/g, '')           // remove straight and curly apostrophes
+                            .replace(/[-\u2013\u2014]/g, ' ')     // treat all dash types as a space
+                            .replace(/\s+/g, ' ')                 // collapse multiple spaces
+                            .trim();
+                    }
+
                     const titleCounts = {};
                     listedItems.forEach(item => {
                         const name = item.item_name;
-                        if (name) titleCounts[name] = (titleCounts[name] || 0) + 1;
+                        if (name) {
+                            const key = normalizeTitle(name);
+                            titleCounts[key] = (titleCounts[key] || 0) + 1;
+                        }
                     });
 
                     const syncData = {};
+                    const unmatchedRvTitles = [];
                     Object.entries(titleMapping).forEach(([title, itemId]) => {
-                        if (titleCounts[title]) {
-                            syncData[itemId] = { name: title, quantity: titleCounts[title] };
+                        const key = normalizeTitle(title);
+                        if (titleCounts[key]) {
+                            syncData[itemId] = { name: title, quantity: titleCounts[key] };
                         }
                     });
 
