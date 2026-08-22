@@ -2,6 +2,7 @@
   "name": "nglh-ebay-sync",
   "version": "1.0.0",
   "dependencies": {
-    "@netlify/functions": "^2.8.1"
+    "@netlify/functions": "^2.8.1",
+    "xml2js": "^0.6.2"
   }
 }
