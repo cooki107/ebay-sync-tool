@@ -313,7 +313,7 @@
                         body: JSON.stringify({ itemId, quantity: info.quantity, authToken, environment: currentEnvironment })
                     });
                     const result = await response.json();
-                    const isSuccess = result.success && result.response.includes('<Ack>Success</Ack>');
+                    const isSuccess = result.success && result.response && result.response.includes('<Ack>Success</Ack>');
 
                     if (isSuccess) {
                         statusBadge.className = 'row-status done';
@@ -321,12 +321,17 @@
                         successCount++;
                     } else {
                         statusBadge.className = 'row-status failed';
-                        statusBadge.textContent = 'Failed';
+                        statusBadge.textContent = 'Failed (tap for why)';
+                        statusBadge.style.cursor = 'pointer';
+                        const errorDetail = result.error || result.response || 'No response received';
+                        statusBadge.onclick = () => alert(`Error for ${info.name}:\n\n${errorDetail}`);
                         failCount++;
                     }
                 } catch (err) {
                     statusBadge.className = 'row-status failed';
-                    statusBadge.textContent = 'Error';
+                    statusBadge.textContent = 'Error (tap for why)';
+                    statusBadge.style.cursor = 'pointer';
+                    statusBadge.onclick = () => alert(`Error for ${info.name}:\n\n${err.message}`);
                     failCount++;
                 }
             }
