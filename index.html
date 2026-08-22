@@ -86,7 +86,7 @@
         <div class="card">
             <label id="tokenLabel">Sandbox OAuth Token</label>
             <input type="text" id="authToken" placeholder="Paste your Sandbox token here">
-            <div class="hint">Stays in your browser only, never saved anywhere.</div>
+            <div class="hint">Remembered on this device — <a href="#" id="forgetTokenLink" style="color:var(--primary);">forget it</a></div>
         </div>
 
         <div id="gateCard" class="card">
@@ -154,6 +154,9 @@
         document.getElementById('envSandbox').addEventListener('click', () => setEnvironment('sandbox'));
         document.getElementById('envProduction').addEventListener('click', () => setEnvironment('production'));
 
+        // On page load, restore whichever token was last saved for the default (Sandbox) view
+        setEnvironment('sandbox');
+
         function setEnvironment(env) {
             currentEnvironment = env;
             const sandboxBtn = document.getElementById('envSandbox');
@@ -183,7 +186,22 @@
             }
             const syncBtn = document.getElementById('syncAllBtn');
             if (syncBtn) syncBtn.textContent = `Sync All to eBay (${env === 'production' ? 'LIVE' : 'Sandbox'})`;
+
+            // Load the remembered token for this environment, if one was saved
+            const savedToken = localStorage.getItem(`nglh_token_${env}`);
+            authInput.value = savedToken || '';
         }
+
+        // Save the token automatically as you type, keyed separately per environment
+        document.getElementById('authToken').addEventListener('input', (e) => {
+            localStorage.setItem(`nglh_token_${currentEnvironment}`, e.target.value.trim());
+        });
+
+        document.getElementById('forgetTokenLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.removeItem(`nglh_token_${currentEnvironment}`);
+            document.getElementById('authToken').value = '';
+        });
 
         document.getElementById('gateCheckbox').addEventListener('change', (e) => {
             const uploadCard = document.getElementById('uploadCard');
