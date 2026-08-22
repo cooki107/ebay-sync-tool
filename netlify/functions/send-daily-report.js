@@ -173,7 +173,7 @@ function buildEmailHtml(sales, traffic) {
   const salesRows = sales.length > 0 ? sales.map(s => `
     <tr>
       <td style="padding:10px 0;border-bottom:1px solid #e2e8f0;">${s.game}</td>
-      <td style="padding:10px 0;border-bottom:1px solid #e2e8f0;text-align:right;color:#0066cc;font-weight:600;">${s.quantity}</td>
+      <td style="padding:10px 0;border-bottom:1px solid #e2e8f0;text-align:right;color:#0d9488;font-weight:600;">${s.quantity}</td>
       <td style="padding:10px 0;border-bottom:1px solid #e2e8f0;text-align:right;color:#64748b;">£${s.price.toFixed(2)}</td>
       <td style="padding:10px 0;border-bottom:1px solid #e2e8f0;text-align:right;color:#059669;font-weight:600;">£${(s.quantity * s.price).toFixed(2)}</td>
     </tr>`).join('') : `<tr><td colspan="4" style="padding:16px 0;text-align:center;color:#94a3b8;">No sales data available yet — order parsing still being finalized.</td></tr>`;
@@ -187,16 +187,16 @@ function buildEmailHtml(sales, traffic) {
   return `
   <html><body style="font-family:-apple-system,sans-serif;background:#f8fafc;padding:20px;">
     <div style="max-width:600px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.08);">
-      <div style="background:linear-gradient(135deg,#0066cc,#0052a3);padding:32px 20px;text-align:center;color:white;">
-        <div style="font-size:36px;margin-bottom:8px;">⚡</div>
+      <div style="background:#0a0a0a;padding:32px 20px;text-align:center;color:white;">
+        <img src="https://celadon-griffin-cb6a9c.netlify.app/logo.png" width="64" height="64" alt="NGLH Trading" style="display:block;margin:0 auto 12px;border-radius:16px;">
         <h1 style="margin:0;font-size:26px;">Daily Report</h1>
-        <p style="margin:4px 0 0;opacity:0.9;font-size:13px;">NGLH Trading</p>
+        <p style="margin:4px 0 0;opacity:0.9;font-size:13px;color:#6bbdae;">NGLH Trading</p>
       </div>
       <div style="padding:32px 20px;">
         <div style="display:flex;gap:12px;margin-bottom:24px;">
-          <div style="flex:1;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px;text-align:center;">
-            <div style="font-size:11px;color:#0066cc;font-weight:600;text-transform:uppercase;">Items Sold</div>
-            <div style="font-size:22px;font-weight:700;color:#0052a3;">${totalItems}</div>
+          <div style="flex:1;background:#f0fdfa;border:1px solid #99f6e4;border-radius:12px;padding:14px;text-align:center;">
+            <div style="font-size:11px;color:#0d9488;font-weight:600;text-transform:uppercase;">Items Sold</div>
+            <div style="font-size:22px;font-weight:700;color:#0f766e;">${totalItems}</div>
           </div>
           <div style="flex:1;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:12px;padding:14px;text-align:center;">
             <div style="font-size:11px;color:#059669;font-weight:600;text-transform:uppercase;">Revenue</div>
