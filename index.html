@@ -75,12 +75,32 @@
         </header>
 
         <div class="card">
-            <label>Sandbox OAuth Token</label>
+            <label>Environment</label>
+            <div style="display:flex;gap:8px;margin-bottom:8px;">
+                <button type="button" id="envSandbox" class="secondary" style="background:var(--primary);color:white;">Sandbox</button>
+                <button type="button" id="envProduction" class="secondary">Production</button>
+            </div>
+            <div class="hint" id="envHint">Currently testing in Sandbox — no live listings affected.</div>
+        </div>
+
+        <div class="card">
+            <label id="tokenLabel">Sandbox OAuth Token</label>
             <input type="text" id="authToken" placeholder="Paste your Sandbox token here">
             <div class="hint">Stays in your browser only, never saved anywhere.</div>
         </div>
 
-        <div class="card">
+        <div id="gateCard" class="card">
+            <label>Before You Sync</label>
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;line-height:1.5;">
+                Have you updated Rv Companion to mark all items sold yesterday as <strong>"sold"</strong> status? This keeps your quantities accurate.
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;">
+                <input type="checkbox" id="gateCheckbox" style="width:auto;margin:0;">
+                Yes, I've updated sold items in Rv Companion
+            </label>
+        </div>
+
+        <div class="card" id="uploadCard" style="opacity:0.5;pointer-events:none;">
             <label>Upload Rv Companion XLSX</label>
             <input type="file" id="fileInput" accept=".xlsx,.xls">
             <div id="uploadStatus" class="status"></div>
@@ -100,10 +120,6 @@
 
     <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
-        const appId = "NathanCo-eBayQuan-SBX-c013d68a0-28c33685";
-        const devId = "590eb9e5-bedb-4ccf-84c3-23739e389f3d";
-        const certId = "SBX-013d68a02898-52fb-4d89-97c4-16b9";
-
         const titleMapping = {
           'Animal Crossing': '128032384253',
           'Animal Crossing Cartridge': '127954148871',
@@ -133,6 +149,52 @@
         };
 
         let currentSyncData = {};
+        let currentEnvironment = 'sandbox';
+
+        document.getElementById('envSandbox').addEventListener('click', () => setEnvironment('sandbox'));
+        document.getElementById('envProduction').addEventListener('click', () => setEnvironment('production'));
+
+        function setEnvironment(env) {
+            currentEnvironment = env;
+            const sandboxBtn = document.getElementById('envSandbox');
+            const prodBtn = document.getElementById('envProduction');
+            const hint = document.getElementById('envHint');
+            const tokenLabel = document.getElementById('tokenLabel');
+            const authInput = document.getElementById('authToken');
+
+            if (env === 'sandbox') {
+                sandboxBtn.style.background = 'var(--primary)';
+                sandboxBtn.style.color = 'white';
+                prodBtn.style.background = 'var(--surface)';
+                prodBtn.style.color = 'var(--primary)';
+                hint.textContent = 'Currently testing in Sandbox — no live listings affected.';
+                hint.style.color = 'var(--text-muted)';
+                tokenLabel.textContent = 'Sandbox OAuth Token';
+                authInput.placeholder = 'Paste your Sandbox token here';
+            } else {
+                prodBtn.style.background = 'var(--danger)';
+                prodBtn.style.color = 'white';
+                sandboxBtn.style.background = 'var(--surface)';
+                sandboxBtn.style.color = 'var(--primary)';
+                hint.textContent = '⚠️ LIVE MODE — this will update your real eBay listings.';
+                hint.style.color = 'var(--danger)';
+                tokenLabel.textContent = 'Production OAuth Token';
+                authInput.placeholder = 'Paste your Production token here';
+            }
+            const syncBtn = document.getElementById('syncAllBtn');
+            if (syncBtn) syncBtn.textContent = `Sync All to eBay (${env === 'production' ? 'LIVE' : 'Sandbox'})`;
+        }
+
+        document.getElementById('gateCheckbox').addEventListener('change', (e) => {
+            const uploadCard = document.getElementById('uploadCard');
+            if (e.target.checked) {
+                uploadCard.style.opacity = '1';
+                uploadCard.style.pointerEvents = 'auto';
+            } else {
+                uploadCard.style.opacity = '0.5';
+                uploadCard.style.pointerEvents = 'none';
+            }
+        });
 
         document.getElementById('fileInput').addEventListener('change', handleFileUpload);
 
@@ -209,8 +271,14 @@
 
             if (!authToken) {
                 syncStatusEl.className = 'status show error';
-                syncStatusEl.textContent = 'Please paste your Sandbox token first';
+                syncStatusEl.textContent = `Please paste your ${currentEnvironment === 'production' ? 'Production' : 'Sandbox'} token first`;
                 return;
+            }
+
+            if (currentEnvironment === 'production') {
+                const entries = Object.entries(currentSyncData);
+                const confirmed = confirm(`⚠️ LIVE MODE\n\nThis will update ${entries.length} REAL eBay listings with new quantities. This cannot be undone.\n\nAre you sure you want to continue?`);
+                if (!confirmed) return;
             }
 
             btn.disabled = true;
@@ -226,7 +294,7 @@
                     const response = await fetch('/api/ebay-sync', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ itemId, quantity: info.quantity, authToken, appId, devId, certId })
+                        body: JSON.stringify({ itemId, quantity: info.quantity, authToken, environment: currentEnvironment })
                     });
                     const result = await response.json();
                     const isSuccess = result.success && result.response.includes('<Ack>Success</Ack>');
@@ -248,7 +316,7 @@
             }
 
             btn.disabled = false;
-            btn.textContent = 'Sync All to eBay (Sandbox)';
+            btn.textContent = `Sync All to eBay (${currentEnvironment === 'production' ? 'LIVE' : 'Sandbox'})`;
             syncStatusEl.className = `status show ${failCount === 0 ? 'success' : 'error'}`;
             syncStatusEl.textContent = `Complete: ${successCount} synced, ${failCount} failed`;
         });
