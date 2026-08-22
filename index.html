@@ -7,6 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="eBay Sync">
+    <link rel="apple-touch-icon" href="/logo.png">
     <meta name="theme-color" content="#0d9488">
     <title>NGLH eBay Sync</title>
     <style>
@@ -74,13 +75,16 @@
             <p class="subtitle">Sandbox testing - full inventory sync</p>
         </header>
 
-        <div class="card">
+        <div class="card hidden" id="envCard">
             <label>Environment</label>
             <div style="display:flex;gap:8px;margin-bottom:8px;">
-                <button type="button" id="envSandbox" class="secondary" style="background:var(--primary);color:white;">Sandbox</button>
-                <button type="button" id="envProduction" class="secondary">Production</button>
+                <button type="button" id="envSandbox" class="secondary">Sandbox</button>
+                <button type="button" id="envProduction" class="secondary" style="background:var(--danger);color:white;">Production</button>
             </div>
-            <div class="hint" id="envHint">Currently testing in Sandbox — no live listings affected.</div>
+            <div class="hint" id="envHint">⚠️ LIVE MODE — this will update your real eBay listings.</div>
+        </div>
+        <div style="text-align:right;margin-bottom:8px;">
+            <a href="#" id="showEnvLink" style="font-size:11px;color:var(--text-muted);">Advanced: switch to Sandbox for testing</a>
         </div>
 
         <div class="card">
@@ -159,9 +163,15 @@
 
         document.getElementById('envSandbox').addEventListener('click', () => setEnvironment('sandbox'));
         document.getElementById('envProduction').addEventListener('click', () => setEnvironment('production'));
+        document.getElementById('showEnvLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('envCard').classList.remove('hidden');
+            e.target.style.display = 'none';
+        });
 
-        // On page load, restore whichever token was last saved for the default (Sandbox) view
-        setEnvironment('sandbox');
+        // Default straight to Production - this is the everyday mode now that
+        // it's confirmed working. Sandbox is tucked behind the "Advanced" link.
+        setEnvironment('production');
 
         function setEnvironment(env) {
             currentEnvironment = env;
