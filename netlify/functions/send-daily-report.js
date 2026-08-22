@@ -192,7 +192,7 @@ function buildEmailHtml(sales, traffic) {
   <html><body style="font-family:-apple-system,sans-serif;background:#f8fafc;padding:20px;">
     <div style="max-width:600px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.08);">
       <div style="background:#0a0a0a;padding:32px 20px;text-align:center;color:white;">
-        <img src="https://celadon-griffin-cb6a9c.netlify.app/logo.png" width="64" height="64" alt="NGLH Trading" style="display:block;margin:0 auto 12px;border-radius:16px;">
+        <img src="https://celadon-griffin-cb6a9c.netlify.app/logo.png?v=${Date.now()}" width="64" height="64" alt="NGLH Trading" style="display:block;margin:0 auto 12px;border-radius:16px;">
         <h1 style="margin:0;font-size:26px;">Daily Report</h1>
         <p style="margin:4px 0 0;opacity:0.9;font-size:13px;color:#6bbdae;">NGLH Trading</p>
       </div>
