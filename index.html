@@ -313,7 +313,8 @@
                         body: JSON.stringify({ itemId, quantity: info.quantity, authToken, environment: currentEnvironment })
                     });
                     const result = await response.json();
-                    const isSuccess = result.success && result.response && result.response.includes('<Ack>Success</Ack>');
+                    const isSuccess = result.success && result.response &&
+                        (result.response.includes('<Ack>Success</Ack>') || result.response.includes('<Ack>Warning</Ack>'));
 
                     if (isSuccess) {
                         statusBadge.className = 'row-status done';
