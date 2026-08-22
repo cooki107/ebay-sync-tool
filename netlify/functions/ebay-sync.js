@@ -1,3 +1,4 @@
+// Netlify serverless function - runs on Netlify's servers, not blocked like my sandbox
 exports.handler = async function(event, context) {
   const https = require('https');
 
@@ -5,7 +6,22 @@ exports.handler = async function(event, context) {
     return { statusCode: 405, body: 'Method not allowed' };
   }
 
-  const { action, itemId, quantity, authToken, appId, devId, certId } = JSON.parse(event.body);
+  // Credentials now come from Netlify environment variables, NOT from the browser.
+  // This prevents the Cert ID (secret) from ever being visible in page source.
+  const { action, itemId, quantity, authToken, environment } = JSON.parse(event.body);
+
+  const isProd = environment === 'production';
+  const appId = isProd ? process.env.EBAY_PROD_APP_ID : process.env.EBAY_SANDBOX_APP_ID;
+  const devId = isProd ? process.env.EBAY_PROD_DEV_ID : process.env.EBAY_SANDBOX_DEV_ID;
+  const certId = isProd ? process.env.EBAY_PROD_CERT_ID : process.env.EBAY_SANDBOX_CERT_ID;
+  const hostname = isProd ? 'api.ebay.com' : 'api.sandbox.ebay.com';
+
+  if (!appId || !devId || !certId) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ success: false, error: `Missing ${isProd ? 'Production' : 'Sandbox'} credentials in Netlify environment variables. Set them in Site settings > Environment variables.` })
+    };
+  }
 
   let xmlRequest, callName;
 
@@ -76,7 +92,7 @@ exports.handler = async function(event, context) {
   }
 
   const options = {
-    hostname: 'api.sandbox.ebay.com',
+    hostname: hostname,
     path: '/ws/api.dll',
     method: 'POST',
     headers: {
