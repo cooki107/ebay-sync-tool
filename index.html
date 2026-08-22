@@ -84,9 +84,14 @@
         </div>
 
         <div class="card">
-            <label id="tokenLabel">Sandbox OAuth Token</label>
-            <input type="text" id="authToken" placeholder="Paste your Sandbox token here">
-            <div class="hint">Remembered on this device — <a href="#" id="forgetTokenLink" style="color:var(--primary);">forget it</a></div>
+            <div id="tokenEntryState">
+                <label id="tokenLabel">Sandbox OAuth Token</label>
+                <input type="password" id="authToken" placeholder="Paste your Sandbox token here">
+            </div>
+            <div id="tokenSavedState" class="hidden" style="display:flex;align-items:center;justify-content:space-between;">
+                <span style="font-size:13px;color:var(--success);font-weight:600;">✓ <span id="tokenSavedLabel">Sandbox</span> token saved</span>
+                <a href="#" id="changeTokenLink" style="color:var(--primary);font-size:12px;">change</a>
+            </div>
         </div>
 
         <div id="gateCard" class="card">
@@ -130,8 +135,8 @@
           'Pokemon Arceus - Cartridge': '127916388908',
           'Princess Peach Showtime': '127935957482',
           'Princess Peach Showtime - Cartridge': '127992249046',
-          'Super Mario 3D Allstars': '127951567807',
-          'Super Mario 3D Allstars - Cartridge': '128013972085',
+          'Mario 3D All Stars': '127951567807',
+          'Mario 3D All Stars - Cartridge': '128013972085',
           'Super Mario U Deluxe': '127907346508',
           'Super Mario Wonder': '127940340265',
           'Super Mario Wonder - Cartridge': '128017583742',
