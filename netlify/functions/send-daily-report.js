@@ -1,12 +1,50 @@
 // Scheduled Netlify Function - runs automatically every day
 // Sends the 8am sales report email via Resend
+//
+// TOMORROW'S TODO:
+// 1. Sign up at resend.com (free), get an API key
+// 2. Add RESEND_API_KEY as an environment variable in Netlify site settings
+// 3. Replace the placeholder eBay data below with real GetOrders / GetSellerList API calls
+// 4. Verify the schedule time below matches 8am UK time (accounting for BST/GMT)
 
 const { schedule } = require('@netlify/functions');
 const https = require('https');
 
 // UK is GMT (winter) or BST (summer, UTC+1). Netlify cron runs in UTC.
 // 8am UK time = 7am UTC in summer (BST), 8am UTC in winter (GMT).
+// Using 7am UTC as a starting point - adjust seasonally, or build DST logic later.
 const CRON_SCHEDULE = '0 7 * * *'; // Every day at 07:00 UTC
+
+const xml2js = require('xml2js');
+
+// Reverse mapping: eBay Item ID -> game name, used to label sold items in the email
+const itemIdToGameName = {
+  '128032384253': 'Animal Crossing',
+  '127954148871': 'Animal Crossing - Cartridge',
+  '128032385043': "Luigi's Mansion 3",
+  '128032381763': 'Mario Kart 8',
+  '128032384109': 'Mario Kart 8 - Cartridge',
+  '127907257328': 'Pokemon Arceus',
+  '127916388908': 'Pokemon Arceus - Cartridge',
+  '127935957482': 'Princess Peach Showtime',
+  '127992249046': 'Princess Peach Showtime - Cartridge',
+  '127951567807': 'Super Mario 3D Allstars',
+  '128013972085': 'Super Mario 3D Allstars - Cartridge',
+  '127907346508': 'Super Mario U Deluxe',
+  '127940340265': 'Super Mario Wonder',
+  '128017583742': 'Super Mario Wonder - Cartridge',
+  '127916232402': 'Super Mario Odyssey',
+  '128032561397': 'Super Mario Odyssey - Cartridge',
+  '127992258497': 'Super Mario Jamboree',
+  '127923383109': 'Super Smash Bros',
+  '127916387430': 'Super Smash Bros - Cartridge',
+  '127967561009': 'Zelda Links Awakening',
+  '127927213642': 'Zelda Links Awakening - Cartridge',
+  '127925580095': 'Zelda Breath of the wild',
+  '128013967400': 'Zelda Breath of the wild - Cartridge',
+  '128017580568': 'Zelda Tears of the kingdom',
+  '128031128860': 'Mario and Sonic Olympic Games'
+};
 
 function ebayApiCall(xmlRequest, callName, authToken, appId, devId, certId, hostname) {
   return new Promise((resolve, reject) => {
@@ -63,15 +101,66 @@ async function getYesterdaySales(authToken, appId, devId, certId, hostname) {
 
   try {
     const response = await ebayApiCall(xmlRequest, 'GetOrders', authToken, appId, devId, certId, hostname);
-    console.log('GetOrders raw response:', response.substring(0, 500));
-    return { raw: response, parsed: [] };
+    const parsed = await parseGetOrdersXml(response);
+    return { raw: response, parsed };
   } catch (err) {
     console.error('GetOrders failed:', err);
     return { raw: null, parsed: [] };
   }
 }
 
+async function parseGetOrdersXml(xmlString) {
+  const parser = new xml2js.Parser({ explicitArray: false, ignoreAttrs: false });
+  const result = await parser.parseStringPromise(xmlString);
+
+  const response = result.GetOrdersResponse;
+  if (!response) return [];
+
+  if (response.Ack !== 'Success' && response.Ack !== 'Warning') {
+    console.error('GetOrders returned non-success Ack:', response.Ack);
+    return [];
+  }
+
+  let orders = response.OrderArray && response.OrderArray.Order;
+  if (!orders) return []; // No orders in the time window
+  if (!Array.isArray(orders)) orders = [orders]; // xml2js doesn't wrap single items in an array
+
+  const sales = [];
+
+  orders.forEach(order => {
+    let transactions = order.TransactionArray && order.TransactionArray.Transaction;
+    if (!transactions) return;
+    if (!Array.isArray(transactions)) transactions = [transactions];
+
+    transactions.forEach(txn => {
+      const itemId = txn.Item && txn.Item.ItemID;
+      const quantity = parseInt(txn.QuantityPurchased, 10) || 1;
+      const priceRaw = txn.TransactionPrice;
+      const price = priceRaw ? parseFloat(typeof priceRaw === 'object' ? priceRaw._ : priceRaw) : 0;
+      const gameName = itemIdToGameName[itemId] || (txn.Item && txn.Item.Title) || `Unknown item (${itemId})`;
+
+      sales.push({ game: gameName, quantity, price });
+    });
+  });
+
+  // Merge duplicate game entries (e.g. 2 separate orders for the same game same day)
+  const merged = {};
+  sales.forEach(s => {
+    if (!merged[s.game]) {
+      merged[s.game] = { game: s.game, quantity: 0, price: s.price };
+    }
+    merged[s.game].quantity += s.quantity;
+  });
+
+  return Object.values(merged);
+}
+
 async function getYesterdayTraffic(authToken, appId, devId, certId, hostname, itemIds) {
+  // eBay's Traffic Report API requires the Analytics API (REST, not Trading API)
+  // and uses OAuth (not Auth'n'Auth tokens) - this is a different auth flow.
+  // TOMORROW: Confirm which token type works here, may need a separate
+  // Client Credentials OAuth token generated fresh per call (2hr expiry).
+  // Endpoint: GET https://api.ebay.com/sell/analytics/v1/traffic_report
   console.log('Traffic report - needs OAuth client credentials flow, not yet implemented');
   return [];
 }
@@ -147,7 +236,7 @@ function buildEmailHtml(sales, traffic) {
 
 async function sendViaResend(htmlContent, resendApiKey, toEmail) {
   const payload = JSON.stringify({
-    from: 'NGLH Sync <onboarding@resend.dev>',
+    from: 'NGLH Sync <onboarding@resend.dev>', // Replace with verified domain later
     to: [toEmail],
     subject: `eBay Sales Report - ${new Date().toLocaleDateString('en-GB')}`,
     html: htmlContent
@@ -178,6 +267,7 @@ async function sendViaResend(htmlContent, resendApiKey, toEmail) {
 
 const handler = async function(event, context) {
   try {
+    // These will come from Netlify environment variables (set up tomorrow)
     const authToken = process.env.EBAY_PRODUCTION_TOKEN || '';
     const appId = process.env.EBAY_PROD_APP_ID || '';
     const devId = process.env.EBAY_PROD_DEV_ID || '';
@@ -185,9 +275,12 @@ const handler = async function(event, context) {
     const resendApiKey = process.env.RESEND_API_KEY || '';
     const toEmail = process.env.REPORT_EMAIL || 'cooki107@gmail.com';
 
-    const hostname = 'api.ebay.com';
+    const hostname = 'api.ebay.com'; // Daily report always uses Production (real sales data)
     const salesResult = await getYesterdaySales(authToken, appId, devId, certId, hostname);
     const traffic = await getYesterdayTraffic(authToken, appId, devId, certId, hostname);
+    // NOTE: salesResult.parsed is currently empty until GetOrders XML parsing is
+    // built out tomorrow (see comment in getYesterdaySales above). Using an empty
+    // array as a safe fallback so the email still generates without crashing.
     const sales = salesResult.parsed && salesResult.parsed.length > 0 ? salesResult.parsed : [];
     const html = buildEmailHtml(sales, traffic);
 
