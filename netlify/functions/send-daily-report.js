@@ -84,7 +84,11 @@ function parseTag(xml, tag) {
 
 async function getYesterdaySales(authToken, appId, devId, certId, hostname) {
   const now = new Date();
-  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  // Nathan doesn't work weekends. On a Monday, cover Fri/Sat/Sun (3 days) instead
+  // of just the standard 24 hours, so weekend sales aren't missed.
+  const isMonday = now.getUTCDay() === 1; // Sunday=0, Monday=1 ... in UTC
+  const daysToLookBack = isMonday ? 3 : 1;
+  const yesterday = new Date(now.getTime() - daysToLookBack * 24 * 60 * 60 * 1000);
   const startTime = yesterday.toISOString();
   const endTime = now.toISOString();
 
