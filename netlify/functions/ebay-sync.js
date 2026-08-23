@@ -132,12 +132,18 @@ exports.handler = async function(event, context) {
     </RequesterCredentials>
     <ItemID>${itemId}</ItemID>
     <OutputSelector>Quantity</OutputSelector>
+    <OutputSelector>QuantitySold</OutputSelector>
 </GetItemRequest>`;
       const getItemResult = await callEbay(hostname, 'GetItem', headers, getItemXml);
       try {
         const parsed = await new xml2js.Parser({ explicitArray: false }).parseStringPromise(getItemResult.body);
         const rawQuantity = parsed?.GetItemResponse?.Item?.Quantity;
-        if (rawQuantity !== undefined) previousQuantity = parseInt(rawQuantity, 10);
+        const rawQuantitySold = parsed?.GetItemResponse?.Item?.QuantitySold;
+        // Item.Quantity is the lifetime total ever listed (includes units already sold),
+        // not what's currently available - subtract QuantitySold to get the real available count.
+        if (rawQuantity !== undefined) {
+          previousQuantity = parseInt(rawQuantity, 10) - parseInt(rawQuantitySold || '0', 10);
+        }
       } catch (parseErr) {
         // GetItem failing/parsing oddly shouldn't block the actual sync - just skip the "before" value.
       }
