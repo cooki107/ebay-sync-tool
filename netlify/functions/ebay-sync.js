@@ -20,6 +20,35 @@ function callEbay(hostname, callName, headers, xmlRequest) {
   });
 }
 
+// Read-only - looks up a listing's currently available quantity. Never revises anything.
+async function getCurrentQuantity(hostname, headers, authToken, itemId) {
+  // No OutputSelector here - two earlier attempts at OutputSelector values
+  // ('QuantitySold', then 'SellingStatus.QuantitySold') both silently failed to
+  // return the field, so we fetch the full default response instead, which always
+  // includes SellingStatus.QuantitySold.
+  const getItemXml = `<?xml version="1.0" encoding="utf-8"?>
+<GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+    <RequesterCredentials>
+        <eBayAuthToken>${authToken}</eBayAuthToken>
+    </RequesterCredentials>
+    <ItemID>${itemId}</ItemID>
+</GetItemRequest>`;
+  const getItemResult = await callEbay(hostname, 'GetItem', headers, getItemXml);
+  try {
+    const parsed = await new xml2js.Parser({ explicitArray: false }).parseStringPromise(getItemResult.body);
+    const rawQuantity = parsed?.GetItemResponse?.Item?.Quantity;
+    const rawQuantitySold = parsed?.GetItemResponse?.Item?.SellingStatus?.QuantitySold;
+    // Item.Quantity is the lifetime total ever listed (includes units already sold),
+    // not what's currently available - subtract QuantitySold to get the real available count.
+    const previousQuantity = rawQuantity !== undefined
+      ? parseInt(rawQuantity, 10) - parseInt(rawQuantitySold || '0', 10)
+      : null;
+    return { previousQuantity, quantityDebug: `GetItem Quantity=${rawQuantity}, SellingStatus.QuantitySold=${rawQuantitySold}` };
+  } catch (parseErr) {
+    return { previousQuantity: null, quantityDebug: `GetItem response failed to parse: ${parseErr.message}` };
+  }
+}
+
 exports.handler = async function(event, context) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
@@ -42,11 +71,28 @@ exports.handler = async function(event, context) {
     };
   }
 
-  let xmlRequest, callName;
+  const headers = {
+    'X-EBAY-API-CERT-ID': certId,
+    'X-EBAY-API-APP-ID': appId,
+    'X-EBAY-API-DEV-ID': devId,
+    'X-EBAY-API-COMPATIBILITY-LEVEL': '967',
+    'X-EBAY-API-SITEID': '3',
+    'Content-Type': 'text/xml'
+  };
 
-  if (action === 'addItem') {
-    callName = 'AddItem';
-    xmlRequest = `<?xml version="1.0" encoding="utf-8"?>
+  try {
+    // Preview-only lookup the frontend calls right after a file upload, before any sync
+    // button is pressed - just reads the current quantity, never revises the listing.
+    if (action === 'getItem') {
+      const { previousQuantity, quantityDebug } = await getCurrentQuantity(hostname, headers, authToken, itemId);
+      return { statusCode: 200, body: JSON.stringify({ success: true, previousQuantity, quantityDebug }) };
+    }
+
+    let xmlRequest, callName;
+
+    if (action === 'addItem') {
+      callName = 'AddItem';
+      xmlRequest = `<?xml version="1.0" encoding="utf-8"?>
 <AddItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
     <RequesterCredentials>
         <eBayAuthToken>${authToken}</eBayAuthToken>
@@ -95,9 +141,9 @@ exports.handler = async function(event, context) {
         <Site>UK</Site>
     </Item>
 </AddItemRequest>`;
-  } else {
-    callName = 'ReviseItem';
-    xmlRequest = `<?xml version="1.0" encoding="utf-8"?>
+    } else {
+      callName = 'ReviseItem';
+      xmlRequest = `<?xml version="1.0" encoding="utf-8"?>
 <ReviseItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
     <RequesterCredentials>
         <eBayAuthToken>${authToken}</eBayAuthToken>
@@ -108,49 +154,15 @@ exports.handler = async function(event, context) {
     </Item>
     <ErrorLanguage>en_US</ErrorLanguage>
 </ReviseItemRequest>`;
-  }
+    }
 
-  const headers = {
-    'X-EBAY-API-CERT-ID': certId,
-    'X-EBAY-API-APP-ID': appId,
-    'X-EBAY-API-DEV-ID': devId,
-    'X-EBAY-API-COMPATIBILITY-LEVEL': '967',
-    'X-EBAY-API-SITEID': '3',
-    'Content-Type': 'text/xml'
-  };
-
-  try {
     let previousQuantity = null;
     let quantityDebug = null;
 
     // For a quantity revise, look up the listing's current quantity first so the
     // UI can show a before/after, since ReviseItem's own response doesn't include it.
     if (action !== 'addItem') {
-      // No OutputSelector here - two earlier attempts at OutputSelector values
-      // ('QuantitySold', then 'SellingStatus.QuantitySold') both silently failed to
-      // return the field, so we fetch the full default response instead, which always
-      // includes SellingStatus.QuantitySold.
-      const getItemXml = `<?xml version="1.0" encoding="utf-8"?>
-<GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-    <RequesterCredentials>
-        <eBayAuthToken>${authToken}</eBayAuthToken>
-    </RequesterCredentials>
-    <ItemID>${itemId}</ItemID>
-</GetItemRequest>`;
-      const getItemResult = await callEbay(hostname, 'GetItem', headers, getItemXml);
-      try {
-        const parsed = await new xml2js.Parser({ explicitArray: false }).parseStringPromise(getItemResult.body);
-        const rawQuantity = parsed?.GetItemResponse?.Item?.Quantity;
-        const rawQuantitySold = parsed?.GetItemResponse?.Item?.SellingStatus?.QuantitySold;
-        // Item.Quantity is the lifetime total ever listed (includes units already sold),
-        // not what's currently available - subtract QuantitySold to get the real available count.
-        if (rawQuantity !== undefined) {
-          previousQuantity = parseInt(rawQuantity, 10) - parseInt(rawQuantitySold || '0', 10);
-        }
-        quantityDebug = `GetItem Quantity=${rawQuantity}, SellingStatus.QuantitySold=${rawQuantitySold}`;
-      } catch (parseErr) {
-        quantityDebug = `GetItem response failed to parse: ${parseErr.message}`;
-      }
+      ({ previousQuantity, quantityDebug } = await getCurrentQuantity(hostname, headers, authToken, itemId));
     }
 
     const { body, httpStatus } = await callEbay(hostname, callName, headers, xmlRequest);

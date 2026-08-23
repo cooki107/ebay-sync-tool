@@ -120,7 +120,7 @@
             <label>Games Ready to Sync</label>
             <div class="summary-count" id="summaryCount"></div>
             <table>
-                <thead><tr><th>Game</th><th>Rv Qty</th><th>eBay Qty (Before → After)</th><th>Status</th></tr></thead>
+                <thead><tr><th>Game</th><th>RV Qty</th><th>eBay Qty</th><th>Change</th><th>Status</th></tr></thead>
                 <tbody id="analysisTable"></tbody>
             </table>
             <button id="syncAllBtn">Sync All to eBay (Sandbox)</button>
@@ -287,6 +287,7 @@
 
                     currentSyncData = syncData;
                     displayAnalysis(syncData);
+                    previewCurrentQuantities(syncData);
                     statusEl.className = 'status show success';
                     statusEl.textContent = `Loaded ${listedItems.length} listed items successfully`;
                 } catch (err) {
@@ -307,12 +308,62 @@
                 row.innerHTML = `
                     <td>${info.name}</td>
                     <td>${info.quantity}</td>
-                    <td id="qty-${itemId}">—</td>
+                    <td id="ebayqty-${itemId}">Checking…</td>
+                    <td id="change-${itemId}">—</td>
                     <td><span class="row-status pending" id="status-${itemId}">Pending</span></td>
                 `;
                 tbody.appendChild(row);
             });
             document.getElementById('analysisCard').classList.remove('hidden');
+        }
+
+        function renderChange(rvQuantity, ebayQuantity) {
+            const diff = rvQuantity - ebayQuantity;
+            if (diff === 0) return { text: 'No change', color: 'var(--text-muted)' };
+            if (diff > 0) return { text: `+${diff}`, color: 'var(--success)' };
+            return { text: `${diff}`, color: 'var(--danger)' };
+        }
+
+        // Looks up each listing's current eBay quantity so the table shows what will
+        // change before the user commits to syncing anything - read-only, no revises.
+        async function previewCurrentQuantities(data) {
+            const authToken = document.getElementById('authToken').value.trim();
+            const entries = Object.entries(data);
+
+            for (const [itemId, info] of entries) {
+                const ebayQtyCell = document.getElementById(`ebayqty-${itemId}`);
+                const changeCell = document.getElementById(`change-${itemId}`);
+                if (!authToken) {
+                    ebayQtyCell.textContent = 'Enter token above';
+                    continue;
+                }
+
+                try {
+                    const response = await fetch('/api/ebay-sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'getItem', itemId, authToken, environment: currentEnvironment })
+                    });
+                    const result = await response.json();
+
+                    if (result.quantityDebug) {
+                        ebayQtyCell.style.cursor = 'pointer';
+                        ebayQtyCell.title = 'Tap for raw eBay quantity data';
+                        ebayQtyCell.onclick = () => alert(`${info.name}:\n\n${result.quantityDebug}`);
+                    }
+
+                    if (result.success && result.previousQuantity !== null && result.previousQuantity !== undefined) {
+                        ebayQtyCell.textContent = result.previousQuantity;
+                        const change = renderChange(info.quantity, result.previousQuantity);
+                        changeCell.textContent = change.text;
+                        changeCell.style.color = change.color;
+                    } else {
+                        ebayQtyCell.textContent = 'Unknown';
+                    }
+                } catch (err) {
+                    ebayQtyCell.textContent = 'Error';
+                }
+            }
         }
 
         document.getElementById('syncAllBtn').addEventListener('click', async () => {
@@ -340,7 +391,8 @@
             for (const [itemId, info] of entries) {
                 btn.textContent = `Syncing ${successCount + failCount + 1}/${entries.length}...`;
                 const statusBadge = document.getElementById(`status-${itemId}`);
-                const qtyCell = document.getElementById(`qty-${itemId}`);
+                const ebayQtyCell = document.getElementById(`ebayqty-${itemId}`);
+                const changeCell = document.getElementById(`change-${itemId}`);
 
                 try {
                     const response = await fetch('/api/ebay-sync', {
@@ -352,22 +404,20 @@
                     const isSuccess = result.success && result.response &&
                         (result.response.includes('<Ack>Success</Ack>') || result.response.includes('<Ack>Warning</Ack>'));
 
-                    const beforeQty = (result.previousQuantity !== undefined && result.previousQuantity !== null)
-                        ? result.previousQuantity : '?';
-
                     if (result.quantityDebug) {
-                        qtyCell.style.cursor = 'pointer';
-                        qtyCell.title = 'Tap for raw eBay quantity data';
-                        qtyCell.onclick = () => alert(`${info.name}:\n\n${result.quantityDebug}`);
+                        ebayQtyCell.style.cursor = 'pointer';
+                        ebayQtyCell.title = 'Tap for raw eBay quantity data';
+                        ebayQtyCell.onclick = () => alert(`${info.name}:\n\n${result.quantityDebug}`);
                     }
 
                     if (isSuccess) {
-                        qtyCell.textContent = `${beforeQty} → ${info.quantity}`;
+                        ebayQtyCell.textContent = info.quantity;
+                        changeCell.textContent = 'Synced';
+                        changeCell.style.color = 'var(--success)';
                         statusBadge.className = 'row-status done';
                         statusBadge.textContent = 'Synced';
                         successCount++;
                     } else {
-                        qtyCell.textContent = `${beforeQty} → (unchanged)`;
                         statusBadge.className = 'row-status failed';
                         statusBadge.textContent = 'Failed (tap for why)';
                         statusBadge.style.cursor = 'pointer';
