@@ -95,7 +95,7 @@
             </div>
             <div id="tokenSavedState" class="hidden" style="display:flex;align-items:center;justify-content:space-between;">
                 <span style="font-size:13px;color:var(--success);font-weight:600;">✓ <span id="tokenSavedLabel">Sandbox</span> token saved</span>
-                <a href="#" id="changeTokenLink" style="color:var(--primary);font-size:12px;">change</a>
+                <a href="#" id="changeTokenLink" style="color:var(--primary);font-size:12px;">Amend token key</a>
             </div>
         </div>
 
@@ -206,6 +206,16 @@
             // Load the remembered token for this environment, if one was saved
             const savedToken = localStorage.getItem(`nglh_token_${env}`);
             authInput.value = savedToken || '';
+            updateTokenVisibility();
+        }
+
+        // Shows the "token saved" summary once a token exists for this environment,
+        // hiding the input so it's not sat on screen every time the tool is opened.
+        function updateTokenVisibility() {
+            const hasToken = !!localStorage.getItem(`nglh_token_${currentEnvironment}`);
+            document.getElementById('tokenEntryState').classList.toggle('hidden', hasToken);
+            document.getElementById('tokenSavedState').classList.toggle('hidden', !hasToken);
+            document.getElementById('tokenSavedLabel').textContent = currentEnvironment === 'production' ? 'Production' : 'Sandbox';
         }
 
         // Save the token automatically as you type, keyed separately per environment
@@ -213,10 +223,23 @@
             localStorage.setItem(`nglh_token_${currentEnvironment}`, e.target.value.trim());
         });
 
+        // Switch to the "saved" summary once they've finished pasting the token in
+        document.getElementById('authToken').addEventListener('blur', () => {
+            if (document.getElementById('authToken').value.trim()) updateTokenVisibility();
+        });
+
+        document.getElementById('changeTokenLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('tokenEntryState').classList.remove('hidden');
+            document.getElementById('tokenSavedState').classList.add('hidden');
+            document.getElementById('authToken').focus();
+        });
+
         document.getElementById('forgetTokenLink').addEventListener('click', (e) => {
             e.preventDefault();
             localStorage.removeItem(`nglh_token_${currentEnvironment}`);
             document.getElementById('authToken').value = '';
+            updateTokenVisibility();
         });
 
         document.getElementById('gateCheckbox').addEventListener('change', (e) => {
