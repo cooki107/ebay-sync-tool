@@ -6,7 +6,7 @@
 // when the clocks go back in autumn.
 
 const { schedule } = require('@netlify/functions');
-const { getSalesForRange, getTraffic, buildEmailHtml, sendViaResend } = require('./report-shared');
+const { getSalesForRange, getTraffic, getCostData, buildEmailHtml, sendViaResend } = require('./report-shared');
 
 // UK is GMT (winter) or BST (summer, UTC+1). Netlify cron runs in UTC.
 // 8am UK time = 7am UTC in summer (BST), 8am UTC in winter (GMT).
@@ -36,8 +36,9 @@ const handler = async function(event, context) {
     const hostname = 'api.ebay.com'; // Daily report always uses Production (real sales data)
     const salesResult = await getYesterdaySales(authToken, appId, devId, certId, hostname);
     const traffic = await getTraffic();
+    const costs = await getCostData();
     const sales = salesResult.parsed && salesResult.parsed.length > 0 ? salesResult.parsed : [];
-    const html = buildEmailHtml(sales, traffic);
+    const html = buildEmailHtml(sales, traffic, costs);
 
     if (!resendApiKey) {
       console.log('RESEND_API_KEY not set yet - email not sent. HTML generated successfully.');

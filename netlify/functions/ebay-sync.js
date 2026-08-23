@@ -1,5 +1,6 @@
 // Netlify serverless function - runs on Netlify's servers, not blocked like my sandbox
 const xml2js = require('xml2js');
+const { getStore } = require('@netlify/blobs');
 
 function callEbay(hostname, callName, headers, xmlRequest) {
   const https = require('https');
@@ -60,7 +61,20 @@ exports.handler = async function(event, context) {
 
   // Credentials now come from Netlify environment variables, NOT from the browser.
   // This prevents the Cert ID (secret) from ever being visible in page source.
-  const { action, itemId, quantity, authToken, environment } = JSON.parse(event.body);
+  const { action, itemId, quantity, authToken, environment, costs } = JSON.parse(event.body);
+
+  // Doesn't touch eBay at all - just persists game cost data (from the uploaded
+  // inventory file) for the scheduled report emails to read later. No eBay
+  // credentials needed, so this is handled before any of that is checked.
+  if (action === 'saveCostData') {
+    try {
+      const store = getStore('nglh-cost-data');
+      await store.setJSON('latest', costs || {});
+      return { statusCode: 200, body: JSON.stringify({ success: true }) };
+    } catch (error) {
+      return { statusCode: 500, body: JSON.stringify({ success: false, error: error.message }) };
+    }
+  }
 
   const isProd = environment === 'production';
   const appId = isProd ? process.env.EBAY_PROD_APP_ID : process.env.EBAY_SANDBOX_APP_ID;

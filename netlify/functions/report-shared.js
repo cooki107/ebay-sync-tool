@@ -4,6 +4,7 @@
 
 const https = require('https');
 const xml2js = require('xml2js');
+const { getStore } = require('@netlify/blobs');
 
 // Reverse mapping: eBay Item ID -> game name, used to label sold items in the email
 const itemIdToGameName = {
@@ -92,20 +93,34 @@ async function parseGetOrdersXml(xmlString) {
       const price = priceRaw ? parseFloat(typeof priceRaw === 'object' ? priceRaw._ : priceRaw) : 0;
       const gameName = itemIdToGameName[itemId] || (txn.Item && txn.Item.Title) || `Unknown item (${itemId})`;
 
-      sales.push({ game: gameName, quantity, price });
+      sales.push({ itemId, game: gameName, quantity, price });
     });
   });
 
-  // Merge duplicate game entries (e.g. several orders for the same game in the period)
+  // Merge duplicate item entries (e.g. several orders for the same item in the period)
   const merged = {};
   sales.forEach(s => {
-    if (!merged[s.game]) {
-      merged[s.game] = { game: s.game, quantity: 0, price: s.price };
+    if (!merged[s.itemId]) {
+      merged[s.itemId] = { itemId: s.itemId, game: s.game, quantity: 0, price: s.price };
     }
-    merged[s.game].quantity += s.quantity;
+    merged[s.itemId].quantity += s.quantity;
   });
 
   return Object.values(merged);
+}
+
+// Reads the game cost data (item ID -> { name, avgCost }) saved by the sync
+// tool's frontend on each inventory upload. Used to work out profit alongside
+// eBay's own revenue figures. Returns {} if nothing has ever been saved.
+async function getCostData() {
+  try {
+    const store = getStore('nglh-cost-data');
+    const data = await store.get('latest', { type: 'json' });
+    return data || {};
+  } catch (err) {
+    console.error('Failed to read cost data:', err.message);
+    return {};
+  }
 }
 
 // Fetches and parses all completed orders created between startTime and endTime
@@ -141,7 +156,7 @@ async function getTraffic() {
   return [];
 }
 
-function buildEmailHtml(sales, traffic, options) {
+function buildEmailHtml(sales, traffic, costs, options) {
   const {
     reportTitle = 'Daily Report',
     footerCadence = 'Automated daily at 8:00 AM UK time',
@@ -151,20 +166,35 @@ function buildEmailHtml(sales, traffic, options) {
     dateRangeLabel = ''
   } = options || {};
 
+  costs = costs || {};
+  const hasAnyCostData = Object.keys(costs).length > 0;
+
+  function lineProfit(s) {
+    const costInfo = costs[s.itemId];
+    if (!costInfo || costInfo.avgCost == null) return null;
+    return (s.price - costInfo.avgCost) * s.quantity;
+  }
+
   const totalItems = sales.reduce((sum, s) => sum + s.quantity, 0);
   const totalRevenue = sales.reduce((sum, s) => sum + (s.quantity * s.price), 0);
   const totalViews = traffic.reduce((sum, t) => sum + t.views, 0);
+  const salesWithMissingCost = sales.filter(s => lineProfit(s) === null);
+  const totalProfit = sales.reduce((sum, s) => sum + (lineProfit(s) || 0), 0);
   const topSeller = sales.length > 0
     ? sales.reduce((max, s) => (s.quantity > max.quantity ? s : max), sales[0])
     : null;
 
-  const salesRows = sales.length > 0 ? sales.map((s, i) => `
+  const salesRows = sales.length > 0 ? sales.map((s, i) => {
+    const profit = lineProfit(s);
+    return `
     <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
       <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;">${s.game}</td>
       <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;color:#0d9488;font-weight:600;">${s.quantity}</td>
       <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;color:#64748b;">£${s.price.toFixed(2)}</td>
       <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;color:#059669;font-weight:600;">£${(s.quantity * s.price).toFixed(2)}</td>
-    </tr>`).join('') : `<tr><td colspan="4" style="padding:20px 8px;text-align:center;color:#94a3b8;">${noSalesText}</td></tr>`;
+      <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;color:#7c3aed;font-weight:600;">${profit === null ? '—' : `£${profit.toFixed(2)}`}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="5" style="padding:20px 8px;text-align:center;color:#94a3b8;">${noSalesText}</td></tr>`;
 
   const trafficRows = traffic.length > 0 ? traffic.map((t, i) => `
     <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
@@ -193,10 +223,11 @@ function buildEmailHtml(sales, traffic, options) {
       </div>
       <div style="padding:32px 20px;">
         <!-- table-based layout, not flexbox - Outlook desktop's Word rendering
-             engine doesn't support flex at all and would break this row -->
+             engine doesn't support flex at all and would break this row. A 2x2
+             grid rather than 4-across so each card keeps room to breathe. -->
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
           <tr>
-            <td width="33%" style="padding-right:6px;">
+            <td width="50%" style="padding-right:6px;padding-bottom:12px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:12px;">
                 <tr><td style="padding:14px;text-align:center;">
                   <div style="font-size:18px;line-height:1;">🎮</div>
@@ -205,7 +236,7 @@ function buildEmailHtml(sales, traffic, options) {
                 </td></tr>
               </table>
             </td>
-            <td width="34%" style="padding:0 6px;">
+            <td width="50%" style="padding-left:6px;padding-bottom:12px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:12px;">
                 <tr><td style="padding:14px;text-align:center;">
                   <div style="font-size:18px;line-height:1;">💷</div>
@@ -214,7 +245,18 @@ function buildEmailHtml(sales, traffic, options) {
                 </td></tr>
               </table>
             </td>
-            <td width="33%" style="padding-left:6px;">
+          </tr>
+          <tr>
+            <td width="50%" style="padding-right:6px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:12px;">
+                <tr><td style="padding:14px;text-align:center;">
+                  <div style="font-size:18px;line-height:1;">📊</div>
+                  <div style="font-size:11px;color:#7c3aed;font-weight:600;text-transform:uppercase;margin-top:4px;">Profit${salesWithMissingCost.length > 0 && sales.length > 0 ? '*' : ''}</div>
+                  <div style="font-size:22px;font-weight:700;color:#5b21b6;">${sales.length > 0 && !hasAnyCostData ? 'N/A' : `£${totalProfit.toFixed(2)}`}</div>
+                </td></tr>
+              </table>
+            </td>
+            <td width="50%" style="padding-left:6px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fef3c7;border:1px solid #fecaca;border-radius:12px;">
                 <tr><td style="padding:14px;text-align:center;">
                   <div style="font-size:18px;line-height:1;">👁️</div>
@@ -225,6 +267,14 @@ function buildEmailHtml(sales, traffic, options) {
             </td>
           </tr>
         </table>
+        ${sales.length > 0 && !hasAnyCostData ? `
+        <div style="background:#f5f3ff;border:1px dashed #ddd6fe;border-radius:12px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:#6d28d9;">
+          Profit isn't tracked yet - sync the tool once with purchase prices in your inventory file to start seeing it here.
+        </div>` : ''}
+        ${sales.length > 0 && hasAnyCostData && salesWithMissingCost.length > 0 ? `
+        <div style="background:#f5f3ff;border:1px dashed #ddd6fe;border-radius:12px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:#6d28d9;">
+          * Profit total excludes: ${salesWithMissingCost.map(s => s.game).join(', ')} - no purchase price on file for ${salesWithMissingCost.length === 1 ? 'it' : 'these'}.
+        </div>` : ''}
         ${topSeller ? `
         <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#92400e;">
           🏆 <strong>Top seller:</strong> ${topSeller.game} (${topSeller.quantity} sold)
@@ -236,6 +286,7 @@ function buildEmailHtml(sales, traffic, options) {
             <th style="text-align:right;padding:8px;font-size:11px;color:#64748b;">Qty</th>
             <th style="text-align:right;padding:8px;font-size:11px;color:#64748b;">Price</th>
             <th style="text-align:right;padding:8px;font-size:11px;color:#64748b;">Total</th>
+            <th style="text-align:right;padding:8px;font-size:11px;color:#64748b;">Profit</th>
           </tr></thead>
           <tbody>${salesRows}</tbody>
         </table>
@@ -300,6 +351,7 @@ module.exports = {
   parseGetOrdersXml,
   getSalesForRange,
   getTraffic,
+  getCostData,
   buildEmailHtml,
   sendViaResend
 };

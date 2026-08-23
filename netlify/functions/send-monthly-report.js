@@ -3,7 +3,7 @@
 // template as the daily report (see report-shared.js).
 
 const { schedule } = require('@netlify/functions');
-const { getSalesForRange, getTraffic, buildEmailHtml, sendViaResend } = require('./report-shared');
+const { getSalesForRange, getTraffic, getCostData, buildEmailHtml, sendViaResend } = require('./report-shared');
 
 // 8am UK time = 7am UTC in summer (BST), 8am UTC in winter (GMT) - same
 // seasonal caveat as the daily report's cron schedule.
@@ -35,9 +35,10 @@ const handler = async function(event, context) {
 
     const salesResult = await getSalesForRange(start.toISOString(), end.toISOString(), authToken, appId, devId, certId, hostname);
     const traffic = await getTraffic();
+    const costs = await getCostData();
     const sales = salesResult.parsed && salesResult.parsed.length > 0 ? salesResult.parsed : [];
 
-    const html = buildEmailHtml(sales, traffic, {
+    const html = buildEmailHtml(sales, traffic, costs, {
       reportTitle: 'Monthly Report',
       footerCadence: 'Automated monthly on the 1st at 8:00 AM UK time',
       noSalesText: 'No sales recorded last month.',
