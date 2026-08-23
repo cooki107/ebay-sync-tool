@@ -132,13 +132,14 @@ exports.handler = async function(event, context) {
     </RequesterCredentials>
     <ItemID>${itemId}</ItemID>
     <OutputSelector>Quantity</OutputSelector>
-    <OutputSelector>QuantitySold</OutputSelector>
+    <OutputSelector>SellingStatus.QuantitySold</OutputSelector>
 </GetItemRequest>`;
       const getItemResult = await callEbay(hostname, 'GetItem', headers, getItemXml);
       try {
         const parsed = await new xml2js.Parser({ explicitArray: false }).parseStringPromise(getItemResult.body);
         const rawQuantity = parsed?.GetItemResponse?.Item?.Quantity;
-        const rawQuantitySold = parsed?.GetItemResponse?.Item?.QuantitySold;
+        // QuantitySold lives under Item.SellingStatus, not directly on Item.
+        const rawQuantitySold = parsed?.GetItemResponse?.Item?.SellingStatus?.QuantitySold;
         // Item.Quantity is the lifetime total ever listed (includes units already sold),
         // not what's currently available - subtract QuantitySold to get the real available count.
         if (rawQuantity !== undefined) {
