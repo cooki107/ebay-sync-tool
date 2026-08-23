@@ -123,6 +123,8 @@
         @keyframes shimmerPulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
         .hidden { display: none !important; }
         .summary-count { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
+        .thumb-wrap { display: flex; align-items: center; gap: 8px; }
+        .thumb { width: 32px; height: 32px; border-radius: 8px; object-fit: cover; background: var(--border); flex-shrink: 0; }
     </style>
 </head>
 <body>
@@ -389,7 +391,7 @@
                 row.id = `row-${itemId}`;
                 row.style.animationDelay = `${Math.min(index * 0.03, 0.5)}s`;
                 row.innerHTML = `
-                    <td>${info.name}</td>
+                    <td><div class="thumb-wrap"><img class="thumb shimmer" id="thumb-${itemId}" alt=""><span>${info.name}</span></div></td>
                     <td>${info.quantity}</td>
                     <td id="ebayqty-${itemId}" class="shimmer">Checking…</td>
                     <td id="change-${itemId}">—</td>
@@ -416,9 +418,11 @@
             for (const [itemId, info] of entries) {
                 const ebayQtyCell = document.getElementById(`ebayqty-${itemId}`);
                 const changeCell = document.getElementById(`change-${itemId}`);
+                const thumbEl = document.getElementById(`thumb-${itemId}`);
                 if (!authToken) {
                     ebayQtyCell.classList.remove('shimmer');
                     ebayQtyCell.textContent = 'Enter token above';
+                    thumbEl.classList.remove('shimmer');
                     continue;
                 }
 
@@ -445,9 +449,13 @@
                     } else {
                         ebayQtyCell.textContent = 'Unknown';
                     }
+
+                    thumbEl.classList.remove('shimmer');
+                    if (result.pictureUrl) thumbEl.src = result.pictureUrl;
                 } catch (err) {
                     ebayQtyCell.classList.remove('shimmer');
                     ebayQtyCell.textContent = 'Error';
+                    thumbEl.classList.remove('shimmer');
                 }
             }
         }

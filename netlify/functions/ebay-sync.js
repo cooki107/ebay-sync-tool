@@ -43,9 +43,13 @@ async function getCurrentQuantity(hostname, headers, authToken, itemId) {
     const previousQuantity = rawQuantity !== undefined
       ? parseInt(rawQuantity, 10) - parseInt(rawQuantitySold || '0', 10)
       : null;
-    return { previousQuantity, quantityDebug: `GetItem Quantity=${rawQuantity}, SellingStatus.QuantitySold=${rawQuantitySold}` };
+    // PictureURL comes back as a single string with one photo, or an array with several -
+    // just take the first (the listing's primary/gallery image) for the thumbnail.
+    let pictureUrl = parsed?.GetItemResponse?.Item?.PictureDetails?.PictureURL;
+    if (Array.isArray(pictureUrl)) pictureUrl = pictureUrl[0];
+    return { previousQuantity, pictureUrl: pictureUrl || null, quantityDebug: `GetItem Quantity=${rawQuantity}, SellingStatus.QuantitySold=${rawQuantitySold}` };
   } catch (parseErr) {
-    return { previousQuantity: null, quantityDebug: `GetItem response failed to parse: ${parseErr.message}` };
+    return { previousQuantity: null, pictureUrl: null, quantityDebug: `GetItem response failed to parse: ${parseErr.message}` };
   }
 }
 
@@ -84,8 +88,8 @@ exports.handler = async function(event, context) {
     // Preview-only lookup the frontend calls right after a file upload, before any sync
     // button is pressed - just reads the current quantity, never revises the listing.
     if (action === 'getItem') {
-      const { previousQuantity, quantityDebug } = await getCurrentQuantity(hostname, headers, authToken, itemId);
-      return { statusCode: 200, body: JSON.stringify({ success: true, previousQuantity, quantityDebug }) };
+      const { previousQuantity, pictureUrl, quantityDebug } = await getCurrentQuantity(hostname, headers, authToken, itemId);
+      return { statusCode: 200, body: JSON.stringify({ success: true, previousQuantity, pictureUrl, quantityDebug }) };
     }
 
     let xmlRequest, callName;
