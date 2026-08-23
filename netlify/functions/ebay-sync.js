@@ -1,7 +1,26 @@
 // Netlify serverless function - runs on Netlify's servers, not blocked like my sandbox
-exports.handler = async function(event, context) {
-  const https = require('https');
+const xml2js = require('xml2js');
 
+function callEbay(hostname, callName, headers, xmlRequest) {
+  const https = require('https');
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname,
+      path: '/ws/api.dll',
+      method: 'POST',
+      headers: { ...headers, 'X-EBAY-API-CALL-NAME': callName, 'Content-Length': Buffer.byteLength(xmlRequest) }
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve({ body: data, httpStatus: res.statusCode }));
+    });
+    req.on('error', reject);
+    req.write(xmlRequest);
+    req.end();
+  });
+}
+
+exports.handler = async function(event, context) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
   }
@@ -91,42 +110,48 @@ exports.handler = async function(event, context) {
 </ReviseItemRequest>`;
   }
 
-  const options = {
-    hostname: hostname,
-    path: '/ws/api.dll',
-    method: 'POST',
-    headers: {
-      'X-EBAY-API-CALL-NAME': callName,
-      'X-EBAY-API-CERT-ID': certId,
-      'X-EBAY-API-APP-ID': appId,
-      'X-EBAY-API-DEV-ID': devId,
-      'X-EBAY-API-COMPATIBILITY-LEVEL': '967',
-      'X-EBAY-API-SITEID': '3',
-      'Content-Type': 'text/xml',
-      'Content-Length': Buffer.byteLength(xmlRequest)
-    }
+  const headers = {
+    'X-EBAY-API-CERT-ID': certId,
+    'X-EBAY-API-APP-ID': appId,
+    'X-EBAY-API-DEV-ID': devId,
+    'X-EBAY-API-COMPATIBILITY-LEVEL': '967',
+    'X-EBAY-API-SITEID': '3',
+    'Content-Type': 'text/xml'
   };
 
-  return new Promise((resolve) => {
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        resolve({
-          statusCode: 200,
-          body: JSON.stringify({ success: true, response: data, httpStatus: res.statusCode })
-        });
-      });
-    });
+  try {
+    let previousQuantity = null;
 
-    req.on('error', (error) => {
-      resolve({
-        statusCode: 500,
-        body: JSON.stringify({ success: false, error: error.message })
-      });
-    });
+    // For a quantity revise, look up the listing's current quantity first so the
+    // UI can show a before/after, since ReviseItem's own response doesn't include it.
+    if (action !== 'addItem') {
+      const getItemXml = `<?xml version="1.0" encoding="utf-8"?>
+<GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+    <RequesterCredentials>
+        <eBayAuthToken>${authToken}</eBayAuthToken>
+    </RequesterCredentials>
+    <ItemID>${itemId}</ItemID>
+    <OutputSelector>Quantity</OutputSelector>
+</GetItemRequest>`;
+      const getItemResult = await callEbay(hostname, 'GetItem', headers, getItemXml);
+      try {
+        const parsed = await new xml2js.Parser({ explicitArray: false }).parseStringPromise(getItemResult.body);
+        const rawQuantity = parsed?.GetItemResponse?.Item?.Quantity;
+        if (rawQuantity !== undefined) previousQuantity = parseInt(rawQuantity, 10);
+      } catch (parseErr) {
+        // GetItem failing/parsing oddly shouldn't block the actual sync - just skip the "before" value.
+      }
+    }
 
-    req.write(xmlRequest);
-    req.end();
-  });
+    const { body, httpStatus } = await callEbay(hostname, callName, headers, xmlRequest);
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ success: true, response: body, httpStatus, previousQuantity })
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ success: false, error: error.message })
+    };
+  }
 };
