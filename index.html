@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="gate-active">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -32,12 +32,21 @@
                 --pending-bg: rgba(251,191,36,0.15); --pending-text: #fbbf24;
             }
         }
+        html, body {
+            background: var(--bg);
+        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: var(--bg); color: var(--text);
+            color: var(--text);
             padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
             transition: background 0.3s ease, color 0.3s ease;
         }
+        /* While the gate screen is up, the tool's content is hidden so body's own
+           box is tiny - on a mobile browser whose viewport briefly exceeds the
+           document (e.g. iOS Safari's dynamic toolbar), the html canvas beyond
+           body's box would otherwise show through as a stray white gap below the
+           fixed-position gate instead of blending into its dark background. */
+        html.gate-active, body.gate-active { background: #050505; }
         .container { max-width: 560px; margin: 0 auto; }
         header { text-align: center; margin-bottom: 24px; animation: dropIn 0.5s ease both; }
         .logo {
@@ -163,7 +172,7 @@
         .gate-enter-btn:active { transform: scale(0.96); }
     </style>
 </head>
-<body>
+<body class="gate-active">
     <div id="gateScreen">
         <div class="gate-content">
             <div class="logo gate-logo"><svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="gbs" cx="50%" cy="30%" r="70%"><stop offset="0%" style="stop-color:#1a1a1a"/><stop offset="100%" style="stop-color:#050505"/></radialGradient></defs><circle cx="100" cy="100" r="97" fill="none" stroke="#6bbdae" stroke-width="2.5"/><circle cx="100" cy="100" r="90" fill="none" stroke="#6bbdae" stroke-width="1.5"/><circle cx="100" cy="100" r="85" fill="url(#gbs)"/><text x="100" y="118" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800" fill="#fff" text-anchor="middle">NGLH</text></svg></div>
@@ -284,6 +293,8 @@
         document.getElementById('enterToolBtn').addEventListener('click', () => {
             document.getElementById('gateScreen').classList.add('gate-hidden');
             document.querySelector('.container').classList.remove('hidden');
+            document.documentElement.classList.remove('gate-active');
+            document.body.classList.remove('gate-active');
         });
 
         function setEnvironment(env) {
