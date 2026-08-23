@@ -134,10 +134,45 @@
             .thumb { width: 26px; height: 26px; }
             .row-status { font-size: 9px; padding: 2px 6px; }
         }
+        #gateScreen {
+            position: fixed; inset: 0; z-index: 9999;
+            display: flex; align-items: center; justify-content: center;
+            background: radial-gradient(circle at 50% 32%, #16221f 0%, #050505 72%);
+            padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+            transition: opacity 0.45s ease, visibility 0.45s ease;
+        }
+        #gateScreen.gate-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+        .gate-content { text-align: center; animation: cardIn 0.6s ease both; }
+        .gate-logo {
+            width: 120px; height: 120px; margin: 0 auto 28px;
+            animation: gatePulse 2.6s ease-in-out infinite;
+        }
+        @keyframes gatePulse {
+            0%, 100% { box-shadow: 0 0 30px 4px rgba(107,189,174,0.3); }
+            50% { box-shadow: 0 0 48px 12px rgba(107,189,174,0.55); }
+        }
+        .gate-title { color: #fff; font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+        .gate-subtitle { color: #94a3b8; font-size: 14px; margin-bottom: 36px; }
+        .gate-enter-btn {
+            background-color: var(--primary); color: #fff; border: none; border-radius: 12px;
+            padding: 16px 40px; font-size: 16px; font-weight: 700; cursor: pointer;
+            box-shadow: 0 8px 24px rgba(13,148,136,0.4);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+        .gate-enter-btn:hover { transform: translateY(-2px); background-color: var(--primary-dark); }
+        .gate-enter-btn:active { transform: scale(0.96); }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div id="gateScreen">
+        <div class="gate-content">
+            <div class="logo gate-logo"><svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="gbs" cx="50%" cy="30%" r="70%"><stop offset="0%" style="stop-color:#1a1a1a"/><stop offset="100%" style="stop-color:#050505"/></radialGradient></defs><circle cx="100" cy="100" r="97" fill="none" stroke="#6bbdae" stroke-width="2.5"/><circle cx="100" cy="100" r="90" fill="none" stroke="#6bbdae" stroke-width="1.5"/><circle cx="100" cy="100" r="85" fill="url(#gbs)"/><text x="100" y="118" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800" fill="#fff" text-anchor="middle">NGLH</text></svg></div>
+            <h1 class="gate-title">NGLH eBay Sync</h1>
+            <p class="gate-subtitle">Live inventory sync, straight to eBay</p>
+            <button type="button" id="enterToolBtn" class="gate-enter-btn">Enter Tool &rarr;</button>
+        </div>
+    </div>
+    <div class="container hidden">
         <header>
             <div class="logo"><svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="bs" cx="50%" cy="30%" r="70%"><stop offset="0%" style="stop-color:#1a1a1a"/><stop offset="100%" style="stop-color:#050505"/></radialGradient></defs><circle cx="100" cy="100" r="97" fill="none" stroke="#6bbdae" stroke-width="2.5"/><circle cx="100" cy="100" r="90" fill="none" stroke="#6bbdae" stroke-width="1.5"/><circle cx="100" cy="100" r="85" fill="url(#bs)"/><text x="100" y="118" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800" fill="#fff" text-anchor="middle">NGLH</text></svg></div>
             <h1>NGLH eBay Sync</h1>
@@ -245,6 +280,11 @@
         // Default straight to Production - this is the everyday mode now that
         // it's confirmed working. Sandbox is tucked behind the "Advanced" link.
         setEnvironment('production');
+
+        document.getElementById('enterToolBtn').addEventListener('click', () => {
+            document.getElementById('gateScreen').classList.add('gate-hidden');
+            document.querySelector('.container').classList.remove('hidden');
+        });
 
         function setEnvironment(env) {
             currentEnvironment = env;
