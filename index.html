@@ -8,6 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="eBay Sync">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+    <link rel="icon" type="image/png" href="/apple-touch-icon.png?v=2">
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0d9488">
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b1120">
     <title>NGLH eBay Sync</title>
@@ -48,7 +49,11 @@
            fixed-position gate instead of blending into its dark background. */
         html.gate-active, body.gate-active { background: #050505; }
         .container { max-width: 560px; margin: 0 auto; }
-        header { text-align: center; margin-bottom: 24px; animation: dropIn 0.5s ease both; }
+        header { text-align: center; margin-bottom: 20px; animation: dropIn 0.5s ease both; }
+        /* The gate screen just delivered the full branding moment a second ago -
+           this in-tool logo is now just a small reference mark, not a repeat intro. */
+        header .logo { width: 36px; height: 36px; margin-bottom: 8px; }
+        header h1 { font-size: 19px; }
         .logo {
             width: 64px; height: 64px; margin: 0 auto 12px;
             border-radius: 18px; overflow: hidden;
@@ -135,7 +140,10 @@
         .hidden { display: none !important; }
         .summary-count { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
         .thumb-wrap { display: flex; align-items: center; gap: 8px; }
-        .thumb { width: 32px; height: 32px; border-radius: 8px; object-fit: cover; background: var(--border); flex-shrink: 0; }
+        .thumb {
+            width: 32px; height: 32px; border-radius: 8px; object-fit: cover; flex-shrink: 0;
+            background: var(--border) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Ccircle cx='8.5' cy='9.5' r='1.5'/%3E%3Cpath d='M21 15l-5-5-4 4-3-3-6 6'/%3E%3C/svg%3E") center/50% no-repeat;
+        }
         @media (max-width: 380px) {
             th { font-size: 9px; padding: 6px 3px; letter-spacing: 0.01em; }
             td { padding: 6px 3px; }
@@ -170,6 +178,43 @@
         }
         .gate-enter-btn:hover { transform: translateY(-2px); background-color: var(--primary-dark); }
         .gate-enter-btn:active { transform: scale(0.96); }
+        .sync-action-bar {
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 500;
+            background: var(--surface); border-top: 1px solid var(--border);
+            padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+            box-shadow: 0 -4px 16px var(--shadow);
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        .sync-action-inner { max-width: 560px; margin: 0 auto; }
+        .sync-action-inner .status { margin-bottom: 0; margin-top: 10px; }
+        body.has-action-bar { padding-bottom: 150px; }
+        .success-banner {
+            display: flex; align-items: center; gap: 10px;
+        }
+        .success-banner .success-icon { font-size: 22px; line-height: 1; }
+        .success-banner strong { display: block; font-size: 13px; }
+        .success-banner span { font-size: 11px; opacity: 0.85; }
+        .modal-overlay {
+            position: fixed; inset: 0; z-index: 10000;
+            background: rgba(0,0,0,0.55);
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.hidden { display: none; }
+        .modal-box {
+            background: var(--surface); border-radius: 16px; padding: 22px;
+            max-width: 420px; width: 100%; max-height: 80vh; overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+            animation: cardIn 0.22s ease both;
+            border: 1px solid var(--border);
+        }
+        .modal-box h3 { font-size: 16px; margin-bottom: 12px; color: var(--text); }
+        .modal-body {
+            font-size: 13px; color: var(--text-secondary); line-height: 1.6;
+            white-space: pre-wrap; word-break: break-word; margin-bottom: 20px;
+        }
+        .modal-actions { display: flex; gap: 10px; }
+        .modal-actions button { margin: 0; }
     </style>
 </head>
 <body class="gate-active">
@@ -186,6 +231,7 @@
             <div class="logo"><svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="bs" cx="50%" cy="30%" r="70%"><stop offset="0%" style="stop-color:#1a1a1a"/><stop offset="100%" style="stop-color:#050505"/></radialGradient></defs><circle cx="100" cy="100" r="97" fill="none" stroke="#6bbdae" stroke-width="2.5"/><circle cx="100" cy="100" r="90" fill="none" stroke="#6bbdae" stroke-width="1.5"/><circle cx="100" cy="100" r="85" fill="url(#bs)"/><text x="100" y="118" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800" fill="#fff" text-anchor="middle">NGLH</text></svg></div>
             <h1>NGLH eBay Sync</h1>
             <p class="subtitle">Live inventory sync</p>
+            <p class="hint" id="lastSyncedHint" style="margin-top:4px;"></p>
         </header>
 
         <div class="card hidden" id="envCard">
@@ -238,9 +284,22 @@
                     <tbody id="analysisTable"></tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <div id="syncActionBar" class="sync-action-bar hidden">
+        <div class="sync-action-inner">
             <button id="syncAllBtn">Sync All to eBay (Sandbox)</button>
             <div class="progress-track hidden" id="syncProgressTrack"><div class="progress-fill" id="syncProgressFill"></div></div>
             <div id="syncStatus" class="status"></div>
+        </div>
+    </div>
+
+    <div id="modalOverlay" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3 id="modalTitle"></h3>
+            <div id="modalBody" class="modal-body"></div>
+            <div class="modal-actions" id="modalActions"></div>
         </div>
     </div>
 
@@ -295,6 +354,49 @@
             document.querySelector('.container').classList.remove('hidden');
             document.documentElement.classList.remove('gate-active');
             document.body.classList.remove('gate-active');
+        });
+
+        // Purely a local, per-device convenience - not synced anywhere, just a
+        // quick reassurance of when this device last ran a sync.
+        function updateLastSyncedDisplay() {
+            const iso = localStorage.getItem('nglh_last_synced');
+            const el = document.getElementById('lastSyncedHint');
+            if (!iso) { el.textContent = ''; return; }
+            const d = new Date(iso);
+            const datePart = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+            const timePart = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            el.textContent = `Last synced: ${datePart}, ${timePart}`;
+        }
+        updateLastSyncedDisplay();
+
+        // Small in-page modal used in place of native alert()/confirm() popups,
+        // which look jarring and can't be styled to match the rest of the tool.
+        function showModal({ title, body, actions }) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalBody').textContent = body;
+            const actionsEl = document.getElementById('modalActions');
+            actionsEl.innerHTML = '';
+            actions.forEach(a => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = a.label;
+                if (a.secondary) btn.className = 'secondary';
+                btn.addEventListener('click', () => {
+                    hideModal();
+                    if (a.onClick) a.onClick();
+                });
+                actionsEl.appendChild(btn);
+            });
+            document.getElementById('modalOverlay').classList.remove('hidden');
+        }
+        function hideModal() {
+            document.getElementById('modalOverlay').classList.add('hidden');
+        }
+        function showInfoModal(title, body) {
+            showModal({ title, body, actions: [{ label: 'Close', secondary: true }] });
+        }
+        document.getElementById('modalOverlay').addEventListener('click', (e) => {
+            if (e.target.id === 'modalOverlay') hideModal();
         });
 
         function setEnvironment(env) {
@@ -463,6 +565,8 @@
                 tbody.appendChild(row);
             });
             document.getElementById('analysisCard').classList.remove('hidden');
+            document.getElementById('syncActionBar').classList.remove('hidden');
+            document.body.classList.add('has-action-bar');
         }
 
         function renderChange(rvQuantity, ebayQuantity) {
@@ -501,7 +605,7 @@
                     if (result.quantityDebug) {
                         ebayQtyCell.style.cursor = 'pointer';
                         ebayQtyCell.title = 'Tap for raw eBay quantity data';
-                        ebayQtyCell.onclick = () => alert(`${info.name}:\n\n${result.quantityDebug}`);
+                        ebayQtyCell.onclick = () => showInfoModal(info.name, result.quantityDebug);
                     }
 
                     ebayQtyCell.classList.remove('shimmer');
@@ -525,10 +629,9 @@
             }
         }
 
-        document.getElementById('syncAllBtn').addEventListener('click', async () => {
+        document.getElementById('syncAllBtn').addEventListener('click', () => {
             const authToken = document.getElementById('authToken').value.trim();
             const syncStatusEl = document.getElementById('syncStatus');
-            const btn = document.getElementById('syncAllBtn');
 
             if (!authToken) {
                 syncStatusEl.className = 'status show error';
@@ -543,10 +646,22 @@
             const changingCount = entries.filter(([itemId, info]) => previewedQuantities[itemId] !== info.quantity).length;
 
             if (currentEnvironment === 'production') {
-                const confirmed = confirm(`⚠️ LIVE MODE\n\nThis will update ${changingCount} REAL eBay listing(s) with new quantities (${entries.length - changingCount} already match and will be skipped). This cannot be undone.\n\nAre you sure you want to continue?`);
-                if (!confirmed) return;
+                showModal({
+                    title: '⚠️ Live Mode',
+                    body: `This will update ${changingCount} REAL eBay listing(s) with new quantities (${entries.length - changingCount} already match and will be skipped). This cannot be undone.`,
+                    actions: [
+                        { label: 'Cancel', secondary: true },
+                        { label: 'Yes, Sync Now', onClick: () => runSync(entries, authToken) }
+                    ]
+                });
+            } else {
+                runSync(entries, authToken);
             }
+        });
 
+        async function runSync(entries, authToken) {
+            const syncStatusEl = document.getElementById('syncStatus');
+            const btn = document.getElementById('syncAllBtn');
             btn.disabled = true;
             let successCount = 0;
             let failCount = 0;
@@ -585,7 +700,7 @@
                     if (result.quantityDebug) {
                         ebayQtyCell.style.cursor = 'pointer';
                         ebayQtyCell.title = 'Tap for raw eBay quantity data';
-                        ebayQtyCell.onclick = () => alert(`${info.name}:\n\n${result.quantityDebug}`);
+                        ebayQtyCell.onclick = () => showInfoModal(info.name, result.quantityDebug);
                     }
 
                     if (isSuccess) {
@@ -602,7 +717,7 @@
                         statusBadge.style.cursor = 'pointer';
                         statusBadge.title = 'Tap for details';
                         const errorDetail = result.error || result.response || 'No response received';
-                        statusBadge.onclick = () => alert(`Error for ${info.name}:\n\n${errorDetail}`);
+                        statusBadge.onclick = () => showInfoModal(`Error for ${info.name}`, errorDetail);
                         rowEl.classList.add('flash-failed');
                         failCount++;
                     }
@@ -611,7 +726,7 @@
                     statusBadge.textContent = 'Error';
                     statusBadge.style.cursor = 'pointer';
                     statusBadge.title = 'Tap for details';
-                    statusBadge.onclick = () => alert(`Error for ${info.name}:\n\n${err.message}`);
+                    statusBadge.onclick = () => showInfoModal(`Error for ${info.name}`, err.message);
                     rowEl.classList.add('flash-failed');
                     failCount++;
                 }
@@ -622,9 +737,24 @@
             btn.disabled = false;
             btn.textContent = `Sync All to eBay (${currentEnvironment === 'production' ? 'LIVE' : 'Sandbox'})`;
             setTimeout(() => progressTrack.classList.add('hidden'), 600);
+
+            localStorage.setItem('nglh_last_synced', new Date().toISOString());
+            updateLastSyncedDisplay();
+
             syncStatusEl.className = `status show ${failCount === 0 ? 'success' : 'error'}`;
-            syncStatusEl.textContent = `Complete: ${successCount} synced, ${skippedCount} skipped (no change), ${failCount} failed`;
-        });
+            if (failCount === 0) {
+                syncStatusEl.innerHTML = `
+                    <div class="success-banner">
+                        <span class="success-icon">✅</span>
+                        <div>
+                            <strong>All done!</strong>
+                            <span>${successCount} synced${skippedCount ? `, ${skippedCount} already up to date` : ''}</span>
+                        </div>
+                    </div>`;
+            } else {
+                syncStatusEl.textContent = `Complete: ${successCount} synced, ${skippedCount} skipped (no change), ${failCount} failed`;
+            }
+        }
     </script>
 </body>
 </html>
