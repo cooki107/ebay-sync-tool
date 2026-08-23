@@ -57,7 +57,9 @@ const handler = async function(event, context) {
       noSalesPreheader: 'No sales last month - nothing to report',
       preheaderPeriod: 'last month',
       dateRangeLabel: monthLabel,
-      comparison: { label: priorMonthShortLabel, priorRevenue, priorItems }
+      comparison: { label: priorMonthShortLabel, priorRevenue, priorItems },
+      periodStart: start.toISOString(),
+      periodEnd: end.toISOString()
     });
 
     if (!resendApiKey) {

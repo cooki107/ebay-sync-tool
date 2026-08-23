@@ -45,7 +45,9 @@ const handler = async function(event, context) {
       noSalesPreheader: 'No sales this week - nothing to report',
       preheaderPeriod: 'this week',
       dateRangeLabel: rangeLabel,
-      comparison: { label: 'last week', priorRevenue, priorItems }
+      comparison: { label: 'last week', priorRevenue, priorItems },
+      periodStart: weekAgo.toISOString(),
+      periodEnd: now.toISOString()
     });
 
     if (!resendApiKey) {

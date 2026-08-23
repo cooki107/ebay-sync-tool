@@ -20,7 +20,10 @@ async function getYesterdaySales(authToken, appId, devId, certId, hostname) {
   const isMonday = now.getUTCDay() === 1; // Sunday=0, Monday=1 ... in UTC
   const daysToLookBack = isMonday ? 3 : 1;
   const yesterday = new Date(now.getTime() - daysToLookBack * 24 * 60 * 60 * 1000);
-  return getSalesForRange(yesterday.toISOString(), now.toISOString(), authToken, appId, devId, certId, hostname);
+  const startTime = yesterday.toISOString();
+  const endTime = now.toISOString();
+  const result = await getSalesForRange(startTime, endTime, authToken, appId, devId, certId, hostname);
+  return { ...result, startTime, endTime };
 }
 
 const handler = async function(event, context) {
@@ -38,7 +41,10 @@ const handler = async function(event, context) {
     const traffic = await getTraffic();
     const costs = await getCostData();
     const sales = salesResult.parsed && salesResult.parsed.length > 0 ? salesResult.parsed : [];
-    const html = buildEmailHtml(sales, traffic, costs);
+    const html = buildEmailHtml(sales, traffic, costs, {
+      periodStart: salesResult.startTime,
+      periodEnd: salesResult.endTime
+    });
 
     if (!resendApiKey) {
       console.log('RESEND_API_KEY not set yet - email not sent. HTML generated successfully.');

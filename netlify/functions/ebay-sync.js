@@ -1,6 +1,6 @@
 // Netlify serverless function - runs on Netlify's servers, not blocked like my sandbox
 const xml2js = require('xml2js');
-const { getCostStore } = require('./report-shared');
+const { getCostStore, mergeCostSnapshot } = require('./report-shared');
 
 function callEbay(hostname, callName, headers, xmlRequest) {
   const https = require('https');
@@ -69,8 +69,10 @@ exports.handler = async function(event, context) {
   if (action === 'saveCostData') {
     try {
       const store = getCostStore();
-      await store.setJSON('latest', costs || {});
-      return { statusCode: 200, body: JSON.stringify({ success: true }) };
+      const previous = await store.get('latest', { type: 'json' });
+      const { merged, newUnitsDetected } = mergeCostSnapshot(previous, costs);
+      await store.setJSON('latest', merged);
+      return { statusCode: 200, body: JSON.stringify({ success: true, newSoldUnitsDetected: newUnitsDetected }) };
     } catch (error) {
       return { statusCode: 500, body: JSON.stringify({ success: false, error: error.message }) };
     }

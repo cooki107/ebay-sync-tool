@@ -724,12 +724,19 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // Sends game -> average purchase_price to the server so the scheduled
-        // report emails (which run with no browser/file involved) can calculate
-        // profit. Reports back what happened so it's never a silent failure -
-        // this used to fire-and-forget, which made a broken save invisible.
+        // Sends cost data to the server so the scheduled report emails (which run
+        // with no browser/file involved) can calculate profit. Two things are
+        // sent per game: an overall average purchase_price (fallback for when we
+        // don't have an exact match yet), and the full list of current "sold"
+        // rows' purchase_price - the server diffs that list against what it saw
+        // last time to work out exactly which units newly sold and at what cost,
+        // since different copies of the same game can cost different amounts and
+        // an average would misattribute profit to the wrong sale.
+        // Reports back what happened so it's never a silent failure - this used
+        // to fire-and-forget, which made a broken save invisible.
         async function saveCostData(rows, normalizeTitle) {
             const costSums = {}; // normalized title -> { sum, count }
+            const soldPricesByTitle = {}; // normalized title -> [purchase_price, ...] for status === 'sold' rows
             rows.forEach(row => {
                 const price = parseFloat(row.purchase_price);
                 if (!row.item_name || isNaN(price)) return;
@@ -737,13 +744,21 @@
                 if (!costSums[key]) costSums[key] = { sum: 0, count: 0 };
                 costSums[key].sum += price;
                 costSums[key].count += 1;
+                if (row.status === 'sold') {
+                    if (!soldPricesByTitle[key]) soldPricesByTitle[key] = [];
+                    soldPricesByTitle[key].push(price);
+                }
             });
 
             const costs = {};
             Object.entries(titleMapping).forEach(([title, itemId]) => {
                 const key = normalizeTitle(title);
                 if (costSums[key]) {
-                    costs[itemId] = { name: title, avgCost: costSums[key].sum / costSums[key].count };
+                    costs[itemId] = {
+                        name: title,
+                        avgCost: costSums[key].sum / costSums[key].count,
+                        soldPrices: soldPricesByTitle[key] || []
+                    };
                 }
             });
 
@@ -762,7 +777,10 @@
                 if (!response.ok || !result.success) {
                     return { ok: false, message: `Profit data failed to save (${result.error || response.status}).` };
                 }
-                return { ok: true, message: `Cost data saved for ${gameCount} game${gameCount === 1 ? '' : 's'} - profit tracking is up to date.` };
+                const newUnitsMsg = result.newSoldUnitsDetected > 0
+                    ? ` ${result.newSoldUnitsDetected} newly-sold unit${result.newSoldUnitsDetected === 1 ? '' : 's'} cost-matched exactly.`
+                    : '';
+                return { ok: true, message: `Cost data saved for ${gameCount} game${gameCount === 1 ? '' : 's'} - profit tracking is up to date.${newUnitsMsg}` };
             } catch (err) {
                 return { ok: false, message: `Profit data failed to save (${err.message}).` };
             }

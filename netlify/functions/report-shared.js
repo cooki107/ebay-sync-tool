@@ -122,9 +122,9 @@ function getCostStore() {
   });
 }
 
-// Reads the game cost data (item ID -> { name, avgCost }) saved by the sync
-// tool's frontend on each inventory upload. Used to work out profit alongside
-// eBay's own revenue figures. Returns {} if nothing has ever been saved.
+// Reads the saved game cost data (item ID -> { name, avgCost, soldEvents }).
+// Used to work out profit alongside eBay's own revenue figures. Returns {} if
+// nothing has ever been saved.
 async function getCostData() {
   try {
     const store = getCostStore();
@@ -134,6 +134,54 @@ async function getCostData() {
     console.error('Failed to read cost data:', err.message);
     return {};
   }
+}
+
+const MAX_SOLD_EVENTS_PER_ITEM = 200; // more than enough history, keeps the blob small
+
+// Merges a fresh upload's cost data into whatever was already stored, turning
+// a single averaged cost-per-title into exact per-unit cost tracking.
+//
+// Different physical copies of the same game can cost different amounts, so
+// averaging purchase_price across every copy misattributes profit whenever a
+// specific sale's actual unit cost differs from the blended average. Instead:
+// each upload sends the full list of currently-"sold" rows' purchase_price
+// per game, and this diffs that list (as a multiset, so duplicate prices are
+// counted correctly) against the list from the previous upload. Any prices
+// that occur MORE often now than last time are newly-sold units - their exact
+// cost is recorded as a timestamped event. Reports later match sold quantity
+// to these dated events within their own date range for an exact figure,
+// falling back to the plain average only for quantity with no matching event.
+function mergeCostSnapshot(previous, incoming) {
+  const merged = {};
+  let newUnitsDetected = 0;
+  const now = new Date().toISOString();
+
+  Object.entries(incoming || {}).forEach(([itemId, entry]) => {
+    const prevEntry = (previous && previous[itemId]) || {};
+    const prevPrices = prevEntry.lastSoldPrices || [];
+    const newPrices = entry.soldPrices || [];
+
+    const prevCounts = {};
+    prevPrices.forEach(p => { prevCounts[p] = (prevCounts[p] || 0) + 1; });
+    const newCounts = {};
+    newPrices.forEach(p => { newCounts[p] = (newCounts[p] || 0) + 1; });
+
+    const newEvents = [];
+    Object.entries(newCounts).forEach(([priceStr, count]) => {
+      const added = count - (prevCounts[priceStr] || 0);
+      for (let i = 0; i < added; i++) newEvents.push({ cost: parseFloat(priceStr), detectedAt: now });
+    });
+    newUnitsDetected += newEvents.length;
+
+    merged[itemId] = {
+      name: entry.name,
+      avgCost: entry.avgCost,
+      lastSoldPrices: newPrices,
+      soldEvents: [...(prevEntry.soldEvents || []), ...newEvents].slice(-MAX_SOLD_EVENTS_PER_ITEM)
+    };
+  });
+
+  return { merged, newUnitsDetected };
 }
 
 // Fetches and parses all completed orders created between startTime and endTime
@@ -177,16 +225,37 @@ function buildEmailHtml(sales, traffic, costs, options) {
     noSalesPreheader = 'No sales yesterday - nothing to report today',
     preheaderPeriod = 'yesterday',
     dateRangeLabel = '',
-    comparison = null // { label, priorRevenue, priorItems } - weekly/monthly only
+    comparison = null, // { label, priorRevenue, priorItems } - weekly/monthly only
+    periodStart = null, // ISO strings - this report's own date range, for
+    periodEnd = null     // matching sold-unit cost events (see lineProfit below)
   } = options || {};
 
   costs = costs || {};
   const hasAnyCostData = Object.keys(costs).length > 0;
 
+  // Different physical copies of the same game can cost different amounts, so
+  // a single averaged cost-per-game would misattribute profit. Instead, match
+  // this sale's quantity against exact per-unit cost events detected (via
+  // saveCostData's diffing - see report-shared's mergeCostSnapshot) within
+  // this report's own date range, falling back to the average for any
+  // quantity that doesn't have a specific match yet (e.g. sold on eBay but
+  // not yet reflected as "sold" in a fresh inventory upload).
   function lineProfit(s) {
     const costInfo = costs[s.itemId];
-    if (!costInfo || costInfo.avgCost == null) return null;
-    return (s.price - costInfo.avgCost) * s.quantity;
+    if (!costInfo) return null;
+
+    const events = (costInfo.soldEvents || []).filter(e =>
+      (!periodStart || e.detectedAt >= periodStart) && (!periodEnd || e.detectedAt < periodEnd)
+    );
+    const matched = events.slice(0, s.quantity);
+    const knownQty = matched.length;
+    const knownCost = matched.reduce((sum, e) => sum + e.cost, 0);
+    const remainingQty = s.quantity - knownQty;
+    const revenue = s.price * s.quantity;
+
+    if (remainingQty === 0) return { amount: revenue - knownCost, estimated: false };
+    if (costInfo.avgCost == null) return knownQty > 0 ? { amount: revenue - knownCost, estimated: true } : null;
+    return { amount: revenue - (knownCost + remainingQty * costInfo.avgCost), estimated: true };
   }
 
   // Small "+12% vs last week" style indicator. Handles the 0-prior edge case
@@ -206,20 +275,22 @@ function buildEmailHtml(sales, traffic, costs, options) {
   const itemsDelta = comparison ? formatDelta(totalItems, comparison.priorItems, comparison.label) : null;
   const revenueDelta = comparison ? formatDelta(totalRevenue, comparison.priorRevenue, comparison.label) : null;
   const salesWithMissingCost = sales.filter(s => lineProfit(s) === null);
-  const totalProfit = sales.reduce((sum, s) => sum + (lineProfit(s) || 0), 0);
+  const salesWithEstimatedCost = sales.filter(s => { const lp = lineProfit(s); return lp && lp.estimated; });
+  const totalProfit = sales.reduce((sum, s) => sum + (lineProfit(s)?.amount || 0), 0);
   const topSeller = sales.length > 0
     ? sales.reduce((max, s) => (s.quantity > max.quantity ? s : max), sales[0])
     : null;
 
   const salesRows = sales.length > 0 ? sales.map((s, i) => {
     const profit = lineProfit(s);
+    const profitText = profit === null ? '—' : `£${profit.amount.toFixed(2)}${profit.estimated ? '*' : ''}`;
     return `
     <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
       <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;">${s.game}</td>
       <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;color:#0d9488;font-weight:600;">${s.quantity}</td>
       <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;color:#64748b;">£${s.price.toFixed(2)}</td>
       <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;color:#059669;font-weight:600;">£${(s.quantity * s.price).toFixed(2)}</td>
-      <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;color:#7c3aed;font-weight:600;">${profit === null ? '—' : `£${profit.toFixed(2)}`}</td>
+      <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;color:#7c3aed;font-weight:600;">${profitText}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="5" style="padding:20px 8px;text-align:center;color:#94a3b8;">${noSalesText}</td></tr>`;
 
@@ -281,7 +352,7 @@ function buildEmailHtml(sales, traffic, costs, options) {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:12px;">
                 <tr><td style="padding:14px;text-align:center;">
                   <div style="font-size:18px;line-height:1;">📊</div>
-                  <div style="font-size:11px;color:#7c3aed;font-weight:600;text-transform:uppercase;margin-top:4px;">Profit${salesWithMissingCost.length > 0 && sales.length > 0 ? '*' : ''}</div>
+                  <div style="font-size:11px;color:#7c3aed;font-weight:600;text-transform:uppercase;margin-top:4px;">Profit${(salesWithMissingCost.length > 0 || salesWithEstimatedCost.length > 0) && sales.length > 0 ? '*' : ''}</div>
                   <div style="font-size:22px;font-weight:700;color:#5b21b6;">${sales.length > 0 && !hasAnyCostData ? 'N/A' : `£${totalProfit.toFixed(2)}`}</div>
                 </td></tr>
               </table>
@@ -302,8 +373,12 @@ function buildEmailHtml(sales, traffic, costs, options) {
           Profit isn't tracked yet - sync the tool once with purchase prices in your inventory file to start seeing it here.
         </div>` : ''}
         ${sales.length > 0 && hasAnyCostData && salesWithMissingCost.length > 0 ? `
-        <div style="background:#f5f3ff;border:1px dashed #ddd6fe;border-radius:12px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:#6d28d9;">
+        <div style="background:#f5f3ff;border:1px dashed #ddd6fe;border-radius:12px;padding:12px 16px;margin-bottom:8px;font-size:12px;color:#6d28d9;">
           * Profit total excludes: ${salesWithMissingCost.map(s => s.game).join(', ')} - no purchase price on file for ${salesWithMissingCost.length === 1 ? 'it' : 'these'}.
+        </div>` : ''}
+        ${sales.length > 0 && salesWithEstimatedCost.length > 0 ? `
+        <div style="background:#f5f3ff;border:1px dashed #ddd6fe;border-radius:12px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:#6d28d9;">
+          * Profit is an estimate (using average cost, not the exact unit sold) for: ${salesWithEstimatedCost.map(s => s.game).join(', ')} - sync the tool with these marked "sold" for an exact figure.
         </div>` : ''}
         ${topSeller ? `
         <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#92400e;">
@@ -383,6 +458,7 @@ module.exports = {
   getTraffic,
   getCostStore,
   getCostData,
+  mergeCostSnapshot,
   buildEmailHtml,
   sendViaResend
 };
