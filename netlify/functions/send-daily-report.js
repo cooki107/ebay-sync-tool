@@ -230,7 +230,7 @@ function buildEmailHtml(sales, traffic) {
           <tbody>${trafficRows}</tbody>
         </table>
         <div style="text-align:center;margin-top:8px;">
-          <a href="https://www.ebay.co.uk/sh/ord" style="display:inline-block;background:linear-gradient(135deg,#0d9488,#0f766e);color:white;text-decoration:none;font-weight:600;font-size:14px;padding:12px 28px;border-radius:10px;">View &amp; Ship Your Orders &rarr;</a>
+          <a href="https://www.ebay.co.uk/sh/ord" style="display:inline-block;background-color:#0d9488;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 28px;border-radius:10px;">View &amp; Ship Your Orders &rarr;</a>
           <p style="font-size:11px;color:#94a3b8;margin:10px 0 0;">Jumps to your Seller Hub Orders tab. Automated shipping labels aren't available for UK-origin listings via eBay's API yet - investigating.</p>
         </div>
       </div>
