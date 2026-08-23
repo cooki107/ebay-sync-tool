@@ -490,7 +490,7 @@
             statusEl.textContent = 'Reading file...';
 
             const reader = new FileReader();
-            reader.onload = (event) => {
+            reader.onload = async (event) => {
                 try {
                     const data = new Uint8Array(event.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
@@ -537,14 +537,15 @@
                     currentSyncData = syncData;
                     displayAnalysis(syncData);
                     previewCurrentQuantities(syncData);
-                    statusEl.className = 'status show success';
-                    statusEl.textContent = `Loaded ${listedItems.length} listed items successfully`;
 
                     // Average purchase_price per game across the whole file (not just
                     // listed rows) and save it so the daily/weekly/monthly emails can
                     // work out profit - those run on a schedule with no browser involved,
                     // so this is their only way to ever see cost data from this file.
-                    saveCostData(rows, normalizeTitle);
+                    const costResult = await saveCostData(rows, normalizeTitle);
+
+                    statusEl.className = 'status show success';
+                    statusEl.textContent = `Loaded ${listedItems.length} listed items successfully. ${costResult.message}`;
                 } catch (err) {
                     statusEl.className = 'status show error';
                     statusEl.textContent = `Error: ${err.message}`;
@@ -555,8 +556,9 @@
 
         // Sends game -> average purchase_price to the server so the scheduled
         // report emails (which run with no browser/file involved) can calculate
-        // profit. Best-effort - if it fails, sync still carries on as normal.
-        function saveCostData(rows, normalizeTitle) {
+        // profit. Reports back what happened so it's never a silent failure -
+        // this used to fire-and-forget, which made a broken save invisible.
+        async function saveCostData(rows, normalizeTitle) {
             const costSums = {}; // normalized title -> { sum, count }
             rows.forEach(row => {
                 const price = parseFloat(row.purchase_price);
@@ -575,13 +577,25 @@
                 }
             });
 
-            if (Object.keys(costs).length === 0) return;
+            const gameCount = Object.keys(costs).length;
+            if (gameCount === 0) {
+                return { ok: false, message: 'No purchase_price data found in your file - profit tracking was not updated.' };
+            }
 
-            fetch('/api/ebay-sync', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'saveCostData', costs })
-            }).catch(() => { /* best-effort - profit tracking just stays stale */ });
+            try {
+                const response = await fetch('/api/ebay-sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'saveCostData', costs })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    return { ok: false, message: `Profit data failed to save (${result.error || response.status}).` };
+                }
+                return { ok: true, message: `Cost data saved for ${gameCount} game${gameCount === 1 ? '' : 's'} - profit tracking is up to date.` };
+            } catch (err) {
+                return { ok: false, message: `Profit data failed to save (${err.message}).` };
+            }
         }
 
         function displayAnalysis(data) {
