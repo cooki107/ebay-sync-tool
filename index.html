@@ -98,7 +98,8 @@
             background: linear-gradient(90deg, var(--primary), var(--primary-dark));
             transition: width 0.35s ease;
         }
-        table { width: 100%; font-size: 12px; border-collapse: collapse; margin: 10px 0; }
+        .table-scroll { overflow-x: auto; margin: 10px 0; }
+        table { width: 100%; font-size: 12px; border-collapse: collapse; }
         th { text-align: left; padding: 8px 4px; border-bottom: 1px solid var(--border); color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
         td { padding: 8px 4px; border-bottom: 1px solid var(--border); transition: background 0.3s ease; }
         tbody tr { animation: rowIn 0.35s ease both; }
@@ -112,7 +113,7 @@
         .change-zero { color: var(--text-muted); }
         .row-status {
             font-size: 10px; padding: 3px 8px; border-radius: 20px; font-weight: 600;
-            letter-spacing: 0.02em; display: inline-block;
+            letter-spacing: 0.02em; display: inline-block; white-space: nowrap;
             transition: background 0.3s ease, color 0.3s ease;
         }
         .row-status.pending { background: var(--pending-bg); color: var(--pending-text); }
@@ -126,6 +127,13 @@
         .summary-count { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
         .thumb-wrap { display: flex; align-items: center; gap: 8px; }
         .thumb { width: 32px; height: 32px; border-radius: 8px; object-fit: cover; background: var(--border); flex-shrink: 0; }
+        @media (max-width: 380px) {
+            th { font-size: 9px; padding: 6px 3px; letter-spacing: 0.01em; }
+            td { padding: 6px 3px; }
+            table { font-size: 11px; }
+            .thumb { width: 26px; height: 26px; }
+            .row-status { font-size: 9px; padding: 2px 6px; }
+        }
     </style>
 </head>
 <body>
@@ -180,10 +188,12 @@
         <div id="analysisCard" class="card hidden">
             <label>Games Ready to Sync</label>
             <div class="summary-count" id="summaryCount"></div>
-            <table>
-                <thead><tr><th>Game</th><th>RV Qty</th><th>eBay Qty</th><th>Change</th><th>Status</th></tr></thead>
-                <tbody id="analysisTable"></tbody>
-            </table>
+            <div class="table-scroll">
+                <table>
+                    <thead><tr><th>Game</th><th>RV Qty</th><th>eBay Qty</th><th>Change</th><th>Status</th></tr></thead>
+                    <tbody id="analysisTable"></tbody>
+                </table>
+            </div>
             <button id="syncAllBtn">Sync All to eBay (Sandbox)</button>
             <div class="progress-track hidden" id="syncProgressTrack"><div class="progress-fill" id="syncProgressFill"></div></div>
             <div id="syncStatus" class="status"></div>
@@ -505,7 +515,7 @@
 
                 if (previewedQuantities[itemId] === info.quantity) {
                     statusBadge.className = 'row-status skipped';
-                    statusBadge.textContent = 'No change needed';
+                    statusBadge.textContent = 'No change';
                     skippedCount++;
                     progressFill.style.width = `${((successCount + failCount + skippedCount) / entries.length) * 100}%`;
                     continue;
@@ -537,8 +547,9 @@
                         successCount++;
                     } else {
                         statusBadge.className = 'row-status failed';
-                        statusBadge.textContent = 'Failed (tap for why)';
+                        statusBadge.textContent = 'Failed';
                         statusBadge.style.cursor = 'pointer';
+                        statusBadge.title = 'Tap for details';
                         const errorDetail = result.error || result.response || 'No response received';
                         statusBadge.onclick = () => alert(`Error for ${info.name}:\n\n${errorDetail}`);
                         rowEl.classList.add('flash-failed');
@@ -546,8 +557,9 @@
                     }
                 } catch (err) {
                     statusBadge.className = 'row-status failed';
-                    statusBadge.textContent = 'Error (tap for why)';
+                    statusBadge.textContent = 'Error';
                     statusBadge.style.cursor = 'pointer';
+                    statusBadge.title = 'Tap for details';
                     statusBadge.onclick = () => alert(`Error for ${info.name}:\n\n${err.message}`);
                     rowEl.classList.add('flash-failed');
                     failCount++;
