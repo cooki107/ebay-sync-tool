@@ -355,6 +355,12 @@
                     const beforeQty = (result.previousQuantity !== undefined && result.previousQuantity !== null)
                         ? result.previousQuantity : '?';
 
+                    if (result.quantityDebug) {
+                        qtyCell.style.cursor = 'pointer';
+                        qtyCell.title = 'Tap for raw eBay quantity data';
+                        qtyCell.onclick = () => alert(`${info.name}:\n\n${result.quantityDebug}`);
+                    }
+
                     if (isSuccess) {
                         qtyCell.textContent = `${beforeQty} → ${info.quantity}`;
                         statusBadge.className = 'row-status done';

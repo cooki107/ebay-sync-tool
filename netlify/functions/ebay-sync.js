@@ -121,39 +121,42 @@ exports.handler = async function(event, context) {
 
   try {
     let previousQuantity = null;
+    let quantityDebug = null;
 
     // For a quantity revise, look up the listing's current quantity first so the
     // UI can show a before/after, since ReviseItem's own response doesn't include it.
     if (action !== 'addItem') {
+      // No OutputSelector here - two earlier attempts at OutputSelector values
+      // ('QuantitySold', then 'SellingStatus.QuantitySold') both silently failed to
+      // return the field, so we fetch the full default response instead, which always
+      // includes SellingStatus.QuantitySold.
       const getItemXml = `<?xml version="1.0" encoding="utf-8"?>
 <GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
     <RequesterCredentials>
         <eBayAuthToken>${authToken}</eBayAuthToken>
     </RequesterCredentials>
     <ItemID>${itemId}</ItemID>
-    <OutputSelector>Quantity</OutputSelector>
-    <OutputSelector>SellingStatus.QuantitySold</OutputSelector>
 </GetItemRequest>`;
       const getItemResult = await callEbay(hostname, 'GetItem', headers, getItemXml);
       try {
         const parsed = await new xml2js.Parser({ explicitArray: false }).parseStringPromise(getItemResult.body);
         const rawQuantity = parsed?.GetItemResponse?.Item?.Quantity;
-        // QuantitySold lives under Item.SellingStatus, not directly on Item.
         const rawQuantitySold = parsed?.GetItemResponse?.Item?.SellingStatus?.QuantitySold;
         // Item.Quantity is the lifetime total ever listed (includes units already sold),
         // not what's currently available - subtract QuantitySold to get the real available count.
         if (rawQuantity !== undefined) {
           previousQuantity = parseInt(rawQuantity, 10) - parseInt(rawQuantitySold || '0', 10);
         }
+        quantityDebug = `GetItem Quantity=${rawQuantity}, SellingStatus.QuantitySold=${rawQuantitySold}`;
       } catch (parseErr) {
-        // GetItem failing/parsing oddly shouldn't block the actual sync - just skip the "before" value.
+        quantityDebug = `GetItem response failed to parse: ${parseErr.message}`;
       }
     }
 
     const { body, httpStatus } = await callEbay(hostname, callName, headers, xmlRequest);
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true, response: body, httpStatus, previousQuantity })
+      body: JSON.stringify({ success: true, response: body, httpStatus, previousQuantity, quantityDebug })
     };
   } catch (error) {
     return {
