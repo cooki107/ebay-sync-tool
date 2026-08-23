@@ -8,7 +8,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="eBay Sync">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
-    <meta name="theme-color" content="#0d9488">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0d9488">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b1120">
     <title>NGLH eBay Sync</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -17,53 +18,109 @@
             --success-light: #ecfdf5; --danger: #dc2626; --danger-light: #fef2f2;
             --bg: #f8fafc; --surface: #ffffff; --border: #e2e8f0;
             --text: #1e293b; --text-secondary: #64748b; --text-muted: #94a3b8;
+            --shadow: rgba(0,0,0,0.06); --primary-glow: rgba(13,148,136,0.25);
+            --pending-bg: #fef3c7; --pending-text: #92400e;
+            color-scheme: light dark;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary: #14b8a6; --primary-dark: #0d9488; --success: #34d399;
+                --success-light: rgba(52,211,153,0.14); --danger: #f87171; --danger-light: rgba(248,113,113,0.14);
+                --bg: #0b1120; --surface: #151f32; --border: #263449;
+                --text: #e2e8f0; --text-secondary: #94a3b8; --text-muted: #64748b;
+                --shadow: rgba(0,0,0,0.4); --primary-glow: rgba(20,184,166,0.3);
+                --pending-bg: rgba(251,191,36,0.15); --pending-text: #fbbf24;
+            }
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             background: var(--bg); color: var(--text);
             padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+            transition: background 0.3s ease, color 0.3s ease;
         }
         .container { max-width: 560px; margin: 0 auto; }
-        header { text-align: center; margin-bottom: 24px; }
+        header { text-align: center; margin-bottom: 24px; animation: dropIn 0.5s ease both; }
         .logo {
             width: 64px; height: 64px; margin: 0 auto 12px;
             border-radius: 18px; overflow: hidden;
-            box-shadow: 0 6px 14px rgba(13,148,136,0.25);
+            box-shadow: 0 6px 14px var(--primary-glow);
+            transition: box-shadow 0.3s ease, transform 0.2s ease;
         }
+        .logo:hover { transform: scale(1.04) rotate(-1deg); }
         .logo svg { width: 100%; height: 100%; display: block; }
         h1 { font-size: 24px; font-weight: 700; }
         .subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
         .card {
             background: var(--surface); border-radius: 14px; padding: 18px;
-            margin-bottom: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid var(--border);
+            margin-bottom: 14px; box-shadow: 0 2px 6px var(--shadow); border: 1px solid var(--border);
+            transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.25s ease, opacity 0.3s ease, filter 0.3s ease;
+            animation: cardIn 0.45s ease both;
         }
+        .card:nth-of-type(1) { animation-delay: 0.03s; }
+        .card:nth-of-type(2) { animation-delay: 0.08s; }
+        .card:nth-of-type(3) { animation-delay: 0.13s; }
+        .card:nth-of-type(4) { animation-delay: 0.18s; }
+        .card:nth-of-type(5) { animation-delay: 0.23s; }
+        @keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes dropIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
         label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
-        input[type="file"], input[type="text"] {
+        input[type="file"], input[type="text"], input[type="password"] {
             width: 100%; padding: 10px; border: 1px solid var(--border);
             border-radius: 8px; font-size: 14px; margin-bottom: 8px;
+            background: var(--surface); color: var(--text);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow);
         }
         .hint { font-size: 11px; color: var(--text-muted); }
         button {
             width: 100%; padding: 13px; font-size: 15px; font-weight: 600;
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white; border: none; border-radius: 10px; cursor: pointer;
+            box-shadow: 0 4px 12px var(--primary-glow);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.25s ease, color 0.25s ease, opacity 0.15s ease;
         }
-        button:disabled { background: var(--text-muted); }
-        button.secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
+        button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px var(--primary-glow); }
+        button:active:not(:disabled) { transform: scale(0.97); }
+        button:disabled { background: var(--text-muted); box-shadow: none; cursor: not-allowed; }
+        button.secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); box-shadow: none; }
         .status { margin-top: 10px; padding: 10px; border-radius: 8px; font-size: 12px; display: none; }
-        .status.show { display: block; }
+        .status.show { display: block; animation: cardIn 0.3s ease both; }
         .status.success { background: var(--success-light); color: var(--success); }
         .status.error { background: var(--danger-light); color: var(--danger); }
+        .progress-track {
+            width: 100%; height: 6px; background: var(--border); border-radius: 999px;
+            overflow: hidden; margin-top: 12px;
+        }
+        .progress-fill {
+            height: 100%; width: 0%; border-radius: 999px;
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+            transition: width 0.35s ease;
+        }
         table { width: 100%; font-size: 12px; border-collapse: collapse; margin: 10px 0; }
-        th { text-align: left; padding: 8px 4px; border-bottom: 1px solid var(--border); color: var(--text-secondary); font-size: 11px; text-transform: uppercase; }
-        td { padding: 8px 4px; border-bottom: 1px solid var(--border); }
+        th { text-align: left; padding: 8px 4px; border-bottom: 1px solid var(--border); color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
+        td { padding: 8px 4px; border-bottom: 1px solid var(--border); transition: background 0.3s ease; }
+        tbody tr { animation: rowIn 0.35s ease both; }
+        @keyframes rowIn { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: translateX(0); } }
+        tr.flash-success td { animation: flashSuccess 1.1s ease; }
+        tr.flash-failed td { animation: flashFailed 1.1s ease; }
+        @keyframes flashSuccess { 0% { background: var(--success-light); } 100% { background: transparent; } }
+        @keyframes flashFailed { 0% { background: var(--danger-light); } 100% { background: transparent; } }
         .change-pos { color: var(--success); font-weight: 600; }
         .change-neg { color: var(--danger); font-weight: 600; }
         .change-zero { color: var(--text-muted); }
-        .row-status { font-size: 10px; padding: 2px 6px; border-radius: 4px; }
-        .row-status.pending { background: #fef3c7; color: #92400e; }
-        .row-status.done { background: var(--success-light); color: var(--success); }
-        .row-status.failed { background: var(--danger-light); color: var(--danger); }
+        .row-status {
+            font-size: 10px; padding: 3px 8px; border-radius: 20px; font-weight: 600;
+            letter-spacing: 0.02em; display: inline-block;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+        .row-status.pending { background: var(--pending-bg); color: var(--pending-text); }
+        .row-status.done { background: var(--success-light); color: var(--success); animation: popIn 0.3s ease; }
+        .row-status.failed { background: var(--danger-light); color: var(--danger); animation: popIn 0.3s ease; }
+        @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .shimmer { animation: shimmerPulse 1.4s ease-in-out infinite; }
+        @keyframes shimmerPulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
         .hidden { display: none !important; }
         .summary-count { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
     </style>
@@ -125,6 +182,7 @@
                 <tbody id="analysisTable"></tbody>
             </table>
             <button id="syncAllBtn">Sync All to eBay (Sandbox)</button>
+            <div class="progress-track hidden" id="syncProgressTrack"><div class="progress-fill" id="syncProgressFill"></div></div>
             <div id="syncStatus" class="status"></div>
         </div>
     </div>
@@ -326,13 +384,14 @@
             document.getElementById('summaryCount').textContent = `${Object.keys(data).length} games ready to sync`;
             const tbody = document.getElementById('analysisTable');
             tbody.innerHTML = '';
-            Object.entries(data).forEach(([itemId, info]) => {
+            Object.entries(data).forEach(([itemId, info], index) => {
                 const row = document.createElement('tr');
                 row.id = `row-${itemId}`;
+                row.style.animationDelay = `${Math.min(index * 0.03, 0.5)}s`;
                 row.innerHTML = `
                     <td>${info.name}</td>
                     <td>${info.quantity}</td>
-                    <td id="ebayqty-${itemId}">Checking…</td>
+                    <td id="ebayqty-${itemId}" class="shimmer">Checking…</td>
                     <td id="change-${itemId}">—</td>
                     <td><span class="row-status pending" id="status-${itemId}">Pending</span></td>
                 `;
@@ -358,6 +417,7 @@
                 const ebayQtyCell = document.getElementById(`ebayqty-${itemId}`);
                 const changeCell = document.getElementById(`change-${itemId}`);
                 if (!authToken) {
+                    ebayQtyCell.classList.remove('shimmer');
                     ebayQtyCell.textContent = 'Enter token above';
                     continue;
                 }
@@ -376,6 +436,7 @@
                         ebayQtyCell.onclick = () => alert(`${info.name}:\n\n${result.quantityDebug}`);
                     }
 
+                    ebayQtyCell.classList.remove('shimmer');
                     if (result.success && result.previousQuantity !== null && result.previousQuantity !== undefined) {
                         ebayQtyCell.textContent = result.previousQuantity;
                         const change = renderChange(info.quantity, result.previousQuantity);
@@ -385,6 +446,7 @@
                         ebayQtyCell.textContent = 'Unknown';
                     }
                 } catch (err) {
+                    ebayQtyCell.classList.remove('shimmer');
                     ebayQtyCell.textContent = 'Error';
                 }
             }
@@ -412,11 +474,17 @@
             let successCount = 0;
             let failCount = 0;
 
+            const progressTrack = document.getElementById('syncProgressTrack');
+            const progressFill = document.getElementById('syncProgressFill');
+            progressTrack.classList.remove('hidden');
+            progressFill.style.width = '0%';
+
             for (const [itemId, info] of entries) {
                 btn.textContent = `Syncing ${successCount + failCount + 1}/${entries.length}...`;
                 const statusBadge = document.getElementById(`status-${itemId}`);
                 const ebayQtyCell = document.getElementById(`ebayqty-${itemId}`);
                 const changeCell = document.getElementById(`change-${itemId}`);
+                const rowEl = document.getElementById(`row-${itemId}`);
 
                 try {
                     const response = await fetch('/api/ebay-sync', {
@@ -440,6 +508,7 @@
                         changeCell.style.color = 'var(--success)';
                         statusBadge.className = 'row-status done';
                         statusBadge.textContent = 'Synced';
+                        rowEl.classList.add('flash-success');
                         successCount++;
                     } else {
                         statusBadge.className = 'row-status failed';
@@ -447,6 +516,7 @@
                         statusBadge.style.cursor = 'pointer';
                         const errorDetail = result.error || result.response || 'No response received';
                         statusBadge.onclick = () => alert(`Error for ${info.name}:\n\n${errorDetail}`);
+                        rowEl.classList.add('flash-failed');
                         failCount++;
                     }
                 } catch (err) {
@@ -454,12 +524,16 @@
                     statusBadge.textContent = 'Error (tap for why)';
                     statusBadge.style.cursor = 'pointer';
                     statusBadge.onclick = () => alert(`Error for ${info.name}:\n\n${err.message}`);
+                    rowEl.classList.add('flash-failed');
                     failCount++;
                 }
+
+                progressFill.style.width = `${((successCount + failCount) / entries.length) * 100}%`;
             }
 
             btn.disabled = false;
             btn.textContent = `Sync All to eBay (${currentEnvironment === 'production' ? 'LIVE' : 'Sandbox'})`;
+            setTimeout(() => progressTrack.classList.add('hidden'), 600);
             syncStatusEl.className = `status show ${failCount === 0 ? 'success' : 'error'}`;
             syncStatusEl.textContent = `Complete: ${successCount} synced, ${failCount} failed`;
         });
