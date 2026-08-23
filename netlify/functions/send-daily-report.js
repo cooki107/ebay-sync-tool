@@ -229,7 +229,10 @@ function buildEmailHtml(sales, traffic) {
           </tr></thead>
           <tbody>${trafficRows}</tbody>
         </table>
-        <p style="font-size:12px;color:#94a3b8;text-align:center;">Shipping labels feature to be added once Production sync is confirmed working.</p>
+        <div style="text-align:center;margin-top:8px;">
+          <a href="https://www.ebay.co.uk/sh/ord" style="display:inline-block;background:linear-gradient(135deg,#0d9488,#0f766e);color:white;text-decoration:none;font-weight:600;font-size:14px;padding:12px 28px;border-radius:10px;">View &amp; Ship Your Orders &rarr;</a>
+          <p style="font-size:11px;color:#94a3b8;margin:10px 0 0;">Jumps to your Seller Hub Orders tab. Automated shipping labels aren't available for UK-origin listings via eBay's API yet - investigating.</p>
+        </div>
       </div>
       <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px;text-align:center;font-size:12px;color:#94a3b8;">
         NGLH Trading • eBay Sync • Automated daily at 8:00 AM UK time
