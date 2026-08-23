@@ -109,12 +109,25 @@ async function parseGetOrdersXml(xmlString) {
   return Object.values(merged);
 }
 
+// Automatic siteID/token detection doesn't work on this deploy pipeline
+// (deploys here go through the Netlify API rather than a native git build,
+// which is what normally injects Blobs credentials at build time) - so both
+// this file and ebay-sync.js configure the store explicitly instead.
+const NGLH_SITE_ID = '1490b62a-61a3-4544-9489-7a093466240b';
+function getCostStore() {
+  return getStore({
+    name: 'nglh-cost-data',
+    siteID: NGLH_SITE_ID,
+    token: process.env.NETLIFY_BLOBS_TOKEN
+  });
+}
+
 // Reads the game cost data (item ID -> { name, avgCost }) saved by the sync
 // tool's frontend on each inventory upload. Used to work out profit alongside
 // eBay's own revenue figures. Returns {} if nothing has ever been saved.
 async function getCostData() {
   try {
-    const store = getStore('nglh-cost-data');
+    const store = getCostStore();
     const data = await store.get('latest', { type: 'json' });
     return data || {};
   } catch (err) {
@@ -351,6 +364,7 @@ module.exports = {
   parseGetOrdersXml,
   getSalesForRange,
   getTraffic,
+  getCostStore,
   getCostData,
   buildEmailHtml,
   sendViaResend
