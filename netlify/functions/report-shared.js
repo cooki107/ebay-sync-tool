@@ -158,8 +158,18 @@ function mergeCostSnapshot(previous, incoming) {
 
   Object.entries(incoming || {}).forEach(([itemId, entry]) => {
     const prevEntry = (previous && previous[itemId]) || {};
-    const prevPrices = prevEntry.lastSoldPrices || [];
     const newPrices = entry.soldPrices || [];
+    // A missing lastSoldPrices means this item has never been through the new
+    // diffing logic before - either it's brand new, or (just as likely right
+    // after this feature first ships) it only has old-format { avgCost } data
+    // with no per-unit history at all. Either way, there is nothing real to
+    // diff against: treating "missing" as "previously zero" would make every
+    // already-sold row look like it just sold this instant, flooding the
+    // event log with historical units at the wrong timestamp. So this upload
+    // just records the current baseline silently, with no events - only
+    // uploads AFTER this one can detect genuinely new sales.
+    const isFirstTimeTracked = prevEntry.lastSoldPrices === undefined;
+    const prevPrices = isFirstTimeTracked ? newPrices : prevEntry.lastSoldPrices;
 
     const prevCounts = {};
     prevPrices.forEach(p => { prevCounts[p] = (prevCounts[p] || 0) + 1; });

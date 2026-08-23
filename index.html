@@ -297,6 +297,9 @@
         <div style="text-align:right;margin-bottom:8px;">
             <a href="#" id="showEnvLink" style="font-size:11px;color:var(--text-muted);">Advanced: switch to Sandbox for testing</a>
         </div>
+        <div style="text-align:right;margin-bottom:8px;">
+            <a href="#" id="resetCostDataLink" style="font-size:11px;color:var(--text-muted);">Advanced: reset profit tracking data</a>
+        </div>
 
         <div class="card">
             <div id="tokenEntryState">
@@ -410,6 +413,31 @@
             e.preventDefault();
             document.getElementById('envCard').classList.remove('hidden');
             e.target.style.display = 'none';
+        });
+
+        document.getElementById('resetCostDataLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            showModal({
+                title: 'Reset profit tracking data?',
+                body: 'This clears all recorded purchase costs and per-unit sale history used to calculate profit in your reports. It rebuilds automatically from your next sync, but any exact cost matches recorded so far will be lost - only use this if profit figures look wrong and you want a clean slate.',
+                actions: [
+                    { label: 'Cancel', secondary: true },
+                    { label: 'Reset', onClick: async () => {
+                        try {
+                            const response = await fetch('/api/ebay-sync', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ action: 'resetCostData' })
+                            });
+                            const result = await response.json();
+                            if (!response.ok || !result.success) throw new Error(result.error || String(response.status));
+                            showInfoModal('Done', 'Profit tracking data has been reset. Sync the tool once to start rebuilding it.');
+                        } catch (err) {
+                            showInfoModal('Reset failed', err.message);
+                        }
+                    } }
+                ]
+            });
         });
 
         // Default straight to Production - this is the everyday mode now that

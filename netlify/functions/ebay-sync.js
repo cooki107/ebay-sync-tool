@@ -78,6 +78,19 @@ exports.handler = async function(event, context) {
     }
   }
 
+  // Wipes all stored cost/profit-tracking data so it rebuilds cleanly from
+  // scratch on the next sync. An escape hatch for exactly the kind of mess a
+  // bad migration or a corrupted snapshot can leave behind.
+  if (action === 'resetCostData') {
+    try {
+      const store = getCostStore();
+      await store.setJSON('latest', {});
+      return { statusCode: 200, body: JSON.stringify({ success: true }) };
+    } catch (error) {
+      return { statusCode: 500, body: JSON.stringify({ success: false, error: error.message }) };
+    }
+  }
+
   const isProd = environment === 'production';
   const appId = isProd ? process.env.EBAY_PROD_APP_ID : process.env.EBAY_SANDBOX_APP_ID;
   const devId = isProd ? process.env.EBAY_PROD_DEV_ID : process.env.EBAY_SANDBOX_DEV_ID;
