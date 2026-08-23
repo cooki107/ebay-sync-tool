@@ -9,10 +9,12 @@ const { getSalesForRange, getTraffic, getCostData, buildEmailHtml, sendViaResend
 // seasonal caveat as the daily report's cron schedule.
 const CRON_SCHEDULE = '0 7 1 * *'; // 07:00 UTC on the 1st of every month
 
-function getPreviousMonthRange(now) {
-  // First and last instant of the calendar month before "now", in UTC.
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1, 0, 0, 0));
-  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0));
+// First and last instant (UTC) of the calendar month "monthsAgo" months before
+// "now". monthsAgo=1 is last month (what the report covers), 2 is the month
+// before that (used for the vs-prior-month comparison).
+function getMonthRange(now, monthsAgo) {
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - monthsAgo, 1, 0, 0, 0));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - monthsAgo + 1, 1, 0, 0, 0));
   return { start, end };
 }
 
@@ -30,13 +32,23 @@ const handler = async function(event, context) {
     const toEmail = process.env.REPORT_EMAIL || 'cooki107@gmail.com';
 
     const hostname = 'api.ebay.com';
-    const { start, end } = getPreviousMonthRange(new Date());
+    const now = new Date();
+    const { start, end } = getMonthRange(now, 1);
+    const { start: priorStart, end: priorEnd } = getMonthRange(now, 2);
     const monthLabel = formatMonthLabel(start);
+    // Short form ("Jun") rather than "last month" - the report itself covers
+    // "last month" already, so reusing that phrase for the comparison would
+    // read as comparing last month to itself.
+    const priorMonthShortLabel = priorStart.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
 
     const salesResult = await getSalesForRange(start.toISOString(), end.toISOString(), authToken, appId, devId, certId, hostname);
+    const priorSalesResult = await getSalesForRange(priorStart.toISOString(), priorEnd.toISOString(), authToken, appId, devId, certId, hostname);
     const traffic = await getTraffic();
     const costs = await getCostData();
     const sales = salesResult.parsed && salesResult.parsed.length > 0 ? salesResult.parsed : [];
+    const priorSales = priorSalesResult.parsed || [];
+    const priorRevenue = priorSales.reduce((sum, s) => sum + (s.quantity * s.price), 0);
+    const priorItems = priorSales.reduce((sum, s) => sum + s.quantity, 0);
 
     const html = buildEmailHtml(sales, traffic, costs, {
       reportTitle: 'Monthly Report',
@@ -44,7 +56,8 @@ const handler = async function(event, context) {
       noSalesText: 'No sales recorded last month.',
       noSalesPreheader: 'No sales last month - nothing to report',
       preheaderPeriod: 'last month',
-      dateRangeLabel: monthLabel
+      dateRangeLabel: monthLabel,
+      comparison: { label: priorMonthShortLabel, priorRevenue, priorItems }
     });
 
     if (!resendApiKey) {

@@ -26,12 +26,17 @@ const handler = async function(event, context) {
     const hostname = 'api.ebay.com';
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
     const rangeLabel = formatRange(weekAgo, now);
 
     const salesResult = await getSalesForRange(weekAgo.toISOString(), now.toISOString(), authToken, appId, devId, certId, hostname);
+    const priorSalesResult = await getSalesForRange(twoWeeksAgo.toISOString(), weekAgo.toISOString(), authToken, appId, devId, certId, hostname);
     const traffic = await getTraffic();
     const costs = await getCostData();
     const sales = salesResult.parsed && salesResult.parsed.length > 0 ? salesResult.parsed : [];
+    const priorSales = priorSalesResult.parsed || [];
+    const priorRevenue = priorSales.reduce((sum, s) => sum + (s.quantity * s.price), 0);
+    const priorItems = priorSales.reduce((sum, s) => sum + s.quantity, 0);
 
     const html = buildEmailHtml(sales, traffic, costs, {
       reportTitle: 'Weekly Report',
@@ -39,7 +44,8 @@ const handler = async function(event, context) {
       noSalesText: 'No sales recorded this week.',
       noSalesPreheader: 'No sales this week - nothing to report',
       preheaderPeriod: 'this week',
-      dateRangeLabel: rangeLabel
+      dateRangeLabel: rangeLabel,
+      comparison: { label: 'last week', priorRevenue, priorItems }
     });
 
     if (!resendApiKey) {
