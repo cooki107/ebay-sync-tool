@@ -515,7 +515,7 @@
 
                 if (previewedQuantities[itemId] === info.quantity) {
                     statusBadge.className = 'row-status skipped';
-                    statusBadge.textContent = 'No change';
+                    statusBadge.textContent = 'Skipped';
                     skippedCount++;
                     progressFill.style.width = `${((successCount + failCount + skippedCount) / entries.length) * 100}%`;
                     continue;
