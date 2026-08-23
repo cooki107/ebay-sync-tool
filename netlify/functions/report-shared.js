@@ -176,7 +176,8 @@ function buildEmailHtml(sales, traffic, costs, options) {
     noSalesText = 'No sales recorded yesterday.',
     noSalesPreheader = 'No sales yesterday - nothing to report today',
     preheaderPeriod = 'yesterday',
-    dateRangeLabel = ''
+    dateRangeLabel = '',
+    comparison = null // { label, priorRevenue, priorItems } - weekly/monthly only
   } = options || {};
 
   costs = costs || {};
@@ -188,9 +189,22 @@ function buildEmailHtml(sales, traffic, costs, options) {
     return (s.price - costInfo.avgCost) * s.quantity;
   }
 
+  // Small "+12% vs last week" style indicator. Handles the 0-prior edge case
+  // (division by zero) by calling it out as new rather than an undefined %.
+  function formatDelta(current, prior, label) {
+    if (prior === 0 && current === 0) return null;
+    if (prior === 0) return { text: `New vs ${label}`, color: '#059669' };
+    const pct = Math.round(((current - prior) / prior) * 100);
+    if (pct === 0) return { text: `Flat vs ${label}`, color: '#64748b' };
+    return { text: `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}% vs ${label}`, color: pct > 0 ? '#059669' : '#dc2626' };
+  }
+
   const totalItems = sales.reduce((sum, s) => sum + s.quantity, 0);
   const totalRevenue = sales.reduce((sum, s) => sum + (s.quantity * s.price), 0);
+  const avgSalePrice = totalItems > 0 ? totalRevenue / totalItems : 0;
   const totalViews = traffic.reduce((sum, t) => sum + t.views, 0);
+  const itemsDelta = comparison ? formatDelta(totalItems, comparison.priorItems, comparison.label) : null;
+  const revenueDelta = comparison ? formatDelta(totalRevenue, comparison.priorRevenue, comparison.label) : null;
   const salesWithMissingCost = sales.filter(s => lineProfit(s) === null);
   const totalProfit = sales.reduce((sum, s) => sum + (lineProfit(s) || 0), 0);
   const topSeller = sales.length > 0
@@ -246,6 +260,7 @@ function buildEmailHtml(sales, traffic, costs, options) {
                   <div style="font-size:18px;line-height:1;">🎮</div>
                   <div style="font-size:11px;color:#0d9488;font-weight:600;text-transform:uppercase;margin-top:4px;">Items Sold</div>
                   <div style="font-size:22px;font-weight:700;color:#0f766e;">${totalItems}</div>
+                  ${itemsDelta ? `<div style="font-size:10px;color:${itemsDelta.color};margin-top:2px;">${itemsDelta.text}</div>` : ''}
                 </td></tr>
               </table>
             </td>
@@ -255,6 +270,8 @@ function buildEmailHtml(sales, traffic, costs, options) {
                   <div style="font-size:18px;line-height:1;">💷</div>
                   <div style="font-size:11px;color:#059669;font-weight:600;text-transform:uppercase;margin-top:4px;">Revenue</div>
                   <div style="font-size:22px;font-weight:700;color:#047857;">£${totalRevenue.toFixed(2)}</div>
+                  ${totalItems > 0 ? `<div style="font-size:10px;color:#64748b;margin-top:2px;">avg £${avgSalePrice.toFixed(2)}/item</div>` : ''}
+                  ${revenueDelta ? `<div style="font-size:10px;color:${revenueDelta.color};margin-top:2px;">${revenueDelta.text}</div>` : ''}
                 </td></tr>
               </table>
             </td>
