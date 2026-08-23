@@ -118,7 +118,7 @@ function getCostStore() {
   return getStore({
     name: 'nglh-cost-data',
     siteID: NGLH_SITE_ID,
-    token: process.env.NETLIFY_BLOBS_TOKEN
+    token: process.env.BLOBS_ACCESS_TOKEN
   });
 }
 
