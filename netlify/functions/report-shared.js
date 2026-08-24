@@ -321,13 +321,21 @@ async function getTraffic(itemIds, startTime, endTime) {
     // this was built in.
     console.log('getTrafficReport raw response:', JSON.stringify(data));
 
+    // Actual response shape (confirmed from a live call) is flatter than the
+    // docs implied: each record's dimensionValues/metricValues are bare
+    // { value, applicable } entries with no per-entry key - the key names
+    // only live in header.dimensionKeys/header.metrics, positionally
+    // matched to the values below them.
+    const dimKeys = (data.header && data.header.dimensionKeys) || [];
+    const metricKeys = (data.header && data.header.metrics) || [];
+    const listingDimIdx = Math.max(0, dimKeys.findIndex(d => d.key === 'LISTING_ID'));
+    const viewsMetricIdx = Math.max(0, metricKeys.findIndex(m => m.key === 'LISTING_VIEWS_TOTAL'));
+
     const records = data.records || [];
     return records.map(record => {
-      const dims = record.dimensionValues || [];
-      const itemId = (dims.find(d => d.dimensionKey === 'LISTING') || dims[0] || {}).dimensionValue;
-      const metrics = record.metrics || [];
-      const metric = metrics.find(m => /VIEW/i.test(m.metricKey)) || metrics[0];
-      const views = metric ? parseInt((metric.metricValues && metric.metricValues[0] && metric.metricValues[0].value) || '0', 10) : 0;
+      const itemId = record.dimensionValues && record.dimensionValues[listingDimIdx] && record.dimensionValues[listingDimIdx].value;
+      const metricEntry = record.metricValues && record.metricValues[viewsMetricIdx];
+      const views = metricEntry ? (Number(metricEntry.value) || 0) : 0;
       return { itemId, game: itemIdToGameName[itemId] || itemId, views };
     });
   } catch (err) {
