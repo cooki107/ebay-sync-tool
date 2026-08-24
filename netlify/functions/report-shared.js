@@ -17,6 +17,7 @@ const itemIdToGameName = {
   '127916388908': 'Pokemon Arceus - Cartridge',
   '127935957482': 'Princess Peach Showtime',
   '127992249046': 'Princess Peach Showtime - Cartridge',
+  '128041997209': 'Princess Peach Showtime - Sealed',
   '127951567807': 'Mario 3D All Stars',
   '128013972085': 'Mario 3D All Stars - Cartridge',
   '127907346508': 'Super Mario U Deluxe',
@@ -31,6 +32,7 @@ const itemIdToGameName = {
   '127927213642': 'Zelda Links Awakening - Cartridge',
   '127925580095': 'Zelda Breath of the wild',
   '128013967400': 'Zelda Breath of the wild - Cartridge',
+  '128010607888': 'Zelda Breath of the wild - Sealed',
   '128017580568': 'Zelda Tears of the kingdom',
   '128031128860': 'Mario and Sonic Olympic Games'
 };
