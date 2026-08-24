@@ -398,6 +398,13 @@
           'Mario and Sonic Olympic Games': '128031128860'
         };
 
+        // Case/whitespace-insensitive status check so "Listed", "LISTED ", "sold " etc.
+        // in RV Companion never silently drop a whole game out of the sync or its
+        // cost tracking just because the capitalization didn't match exactly.
+        function isRowStatus(row, expected) {
+            return String(row.status || '').trim().toLowerCase() === expected;
+        }
+
         // Edit distance between two strings - used to spot inventory titles that are
         // probably a typo of a known game rather than a genuinely unrelated item.
         function levenshteinDistance(a, b) {
@@ -668,7 +675,7 @@
                     if (!worksheet) throw new Error('Inventory sheet not found');
 
                     const rows = XLSX.utils.sheet_to_json(worksheet);
-                    const listedItems = rows.filter(row => row.status === 'listed');
+                    const listedItems = rows.filter(row => isRowStatus(row, 'listed'));
                     if (listedItems.length === 0) throw new Error('No items with status "listed" found');
 
                     // Normalize titles so apostrophes ('/'), dashes (-/–/—), extra spaces,
@@ -782,7 +789,7 @@
                 if (!costSums[key]) costSums[key] = { sum: 0, count: 0 };
                 costSums[key].sum += price;
                 costSums[key].count += 1;
-                if (row.status === 'sold') {
+                if (isRowStatus(row, 'sold')) {
                     if (!soldPricesByTitle[key]) soldPricesByTitle[key] = [];
                     soldPricesByTitle[key].push(price);
                 }
