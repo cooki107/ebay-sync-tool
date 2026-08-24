@@ -179,6 +179,14 @@
         .row-status.done { background: var(--success-light); color: var(--success); animation: popIn 0.3s ease; }
         .row-status.failed { background: var(--danger-light); color: var(--danger); animation: popIn 0.3s ease; }
         .row-status.skipped { background: var(--border); color: var(--text-secondary); animation: popIn 0.3s ease; }
+        .row-status.excluded { background: var(--border); color: var(--text-muted); text-decoration: line-through; animation: popIn 0.3s ease; }
+        .row-include-checkbox, #selectAllCheckbox { width: 16px; height: 16px; cursor: pointer; }
+        /* A listing currently showing 0 on eBay about to be set to a positive
+           quantity is worth a second look before syncing - could be correct
+           (restocked) or a sign the wrong row got ticked. */
+        tr.row-restock-alert { background: var(--pending-bg); }
+        tr.row-restock-alert:hover { background: var(--pending-bg); }
+        .restock-warning-icon { cursor: help; margin-left: 4px; }
         @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         .shimmer { animation: shimmerPulse 1.4s ease-in-out infinite; }
         @keyframes shimmerPulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
@@ -335,7 +343,7 @@
             <div class="summary-count" id="summaryCount"></div>
             <div class="table-scroll">
                 <table>
-                    <thead><tr><th>Game</th><th>RV Qty</th><th>eBay Qty</th><th>Change</th><th>Status</th></tr></thead>
+                    <thead><tr><th style="width:28px;"><input type="checkbox" id="selectAllCheckbox" checked title="Select/deselect all"></th><th>Game</th><th>RV Qty</th><th>eBay Qty</th><th>Change</th><th>Status</th></tr></thead>
                     <tbody id="analysisTable"></tbody>
                 </table>
             </div>
@@ -823,6 +831,7 @@
                 row.id = `row-${itemId}`;
                 row.style.animationDelay = `${Math.min(index * 0.03, 0.5)}s`;
                 row.innerHTML = `
+                    <td><input type="checkbox" class="row-include-checkbox" id="include-${itemId}" checked></td>
                     <td><div class="thumb-wrap"><img class="thumb shimmer" id="thumb-${itemId}" alt=""><span>${info.name}</span></div></td>
                     <td>${info.quantity}</td>
                     <td id="ebayqty-${itemId}" class="shimmer">Checking…</td>
@@ -834,7 +843,46 @@
             document.getElementById('analysisCard').classList.remove('hidden');
             document.getElementById('syncActionBar').classList.remove('hidden');
             document.body.classList.add('has-action-bar');
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            selectAllCheckbox.checked = true;
+            selectAllCheckbox.indeterminate = false;
         }
+
+        // Ticking/unticking a row's checkbox excludes/includes it from the next sync
+        // run, and keeps the header "select all" checkbox's tri-state in sync.
+        function updateRowIncludeState(itemId) {
+            const checkbox = document.getElementById(`include-${itemId}`);
+            const statusBadge = document.getElementById(`status-${itemId}`);
+            if (checkbox && statusBadge && (statusBadge.classList.contains('pending') || statusBadge.classList.contains('excluded'))) {
+                if (checkbox.checked) {
+                    statusBadge.className = 'row-status pending';
+                    statusBadge.textContent = 'Pending';
+                } else {
+                    statusBadge.className = 'row-status excluded';
+                    statusBadge.textContent = 'Excluded';
+                }
+            }
+            const checkboxes = [...document.querySelectorAll('.row-include-checkbox')];
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            if (checkboxes.length > 0) {
+                const checkedCount = checkboxes.filter(cb => cb.checked).length;
+                selectAllCheckbox.checked = checkedCount === checkboxes.length;
+                selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+            }
+        }
+
+        document.getElementById('analysisTable').addEventListener('change', (e) => {
+            if (!e.target.matches('.row-include-checkbox')) return;
+            updateRowIncludeState(e.target.id.replace('include-', ''));
+        });
+
+        document.getElementById('selectAllCheckbox').addEventListener('change', (e) => {
+            const checked = e.target.checked;
+            document.querySelectorAll('.row-include-checkbox').forEach(cb => {
+                cb.checked = checked;
+                updateRowIncludeState(cb.id.replace('include-', ''));
+            });
+        });
 
         function renderChange(rvQuantity, ebayQuantity) {
             const diff = rvQuantity - ebayQuantity;
@@ -882,6 +930,18 @@
                         const change = renderChange(info.quantity, result.previousQuantity);
                         changeCell.textContent = change.text;
                         changeCell.style.color = change.color;
+
+                        // eBay currently shows 0 available and this sync would set it
+                        // above 0 - worth a second look before ticking it through,
+                        // whether that's a genuine restock or the wrong row.
+                        if (result.previousQuantity === 0 && info.quantity > 0) {
+                            document.getElementById(`row-${itemId}`).classList.add('row-restock-alert');
+                            const warningIcon = document.createElement('span');
+                            warningIcon.className = 'restock-warning-icon';
+                            warningIcon.textContent = '⚠️';
+                            warningIcon.title = 'Currently 0 on eBay - double check before syncing';
+                            changeCell.appendChild(warningIcon);
+                        }
                     } else {
                         ebayQtyCell.textContent = 'Unknown';
                     }
@@ -906,16 +966,31 @@
                 return;
             }
 
-            const entries = Object.entries(currentSyncData);
+            // Unticked rows are excluded from this run entirely - they're left
+            // as-is rather than being synced or even counted as "skipped".
+            const allEntries = Object.entries(currentSyncData);
+            const excludedCount = allEntries.length - [...document.querySelectorAll('.row-include-checkbox')].filter(cb => cb.checked).length;
+            const entries = allEntries.filter(([itemId]) => {
+                const checkbox = document.getElementById(`include-${itemId}`);
+                return !checkbox || checkbox.checked;
+            });
+
+            if (entries.length === 0) {
+                syncStatusEl.className = 'status show error';
+                syncStatusEl.textContent = 'No games selected to sync - tick at least one row first.';
+                return;
+            }
+
             // Anything the preview already found matching the RV quantity needs no API
             // call at all - skip it outright rather than syncing a listing that would
             // just be revised to the value it already has.
             const changingCount = entries.filter(([itemId, info]) => previewedQuantities[itemId] !== info.quantity).length;
 
             if (currentEnvironment === 'production') {
+                const excludedNote = excludedCount > 0 ? `, ${excludedCount} excluded` : '';
                 showModal({
                     title: '⚠️ Live Mode',
-                    body: `This will update ${changingCount} REAL eBay listing(s) with new quantities (${entries.length - changingCount} already match and will be skipped). This cannot be undone.`,
+                    body: `This will update ${changingCount} REAL eBay listing(s) with new quantities (${entries.length - changingCount} already match and will be skipped${excludedNote}). This cannot be undone.`,
                     actions: [
                         { label: 'Cancel', secondary: true },
                         { label: 'Yes, Sync Now', onClick: () => runSync(entries, authToken) }
