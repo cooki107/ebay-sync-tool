@@ -45,7 +45,11 @@ const handler = async function(event, context) {
     const priorSalesResult = await getSalesForRange(priorStart.toISOString(), priorEnd.toISOString(), authToken, appId, devId, certId, hostname);
     const costs = await getCostData();
     const sales = salesResult.parsed && salesResult.parsed.length > 0 ? salesResult.parsed : [];
-    const traffic = await getTraffic(sales.map(s => s.itemId), start.toISOString(), end.toISOString());
+    // getTraffic's date range is inclusive-by-day, but `end` here is the
+    // exclusive start of the *next* month - pull it back 1ms so it floors to
+    // the target month's actual last day instead of pulling in an extra day.
+    const trafficEnd = new Date(end.getTime() - 1);
+    const traffic = await getTraffic(sales.map(s => s.itemId), start.toISOString(), trafficEnd.toISOString());
     const priorSales = priorSalesResult.parsed || [];
     const priorRevenue = priorSales.reduce((sum, s) => sum + (s.quantity * s.price), 0);
     const priorItems = priorSales.reduce((sum, s) => sum + s.quantity, 0);

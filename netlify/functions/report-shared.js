@@ -294,10 +294,11 @@ async function getTraffic(itemIds, startTime, endTime) {
 
   try {
     const startDate = toYyyyMmDd(startTime);
-    // date_range only has day granularity - push the end date forward a day
-    // so a sale late on the last day of the window isn't cut off by the
-    // time-of-day truncation.
-    const endDate = toYyyyMmDd(new Date(new Date(endTime).getTime() + 24 * 60 * 60 * 1000).toISOString());
+    // date_range is inclusive on both ends at day granularity, so today's
+    // date alone already covers all of today - padding it forward (as an
+    // earlier version of this did) rolls a report ending "now" into
+    // tomorrow, which eBay rejects as a future date.
+    const endDate = toYyyyMmDd(endTime);
     const filter = `marketplace_ids:{EBAY_GB},date_range:[${startDate}..${endDate}],listing_ids:{${itemIds.join('|')}}`;
     const url = `https://api.ebay.com/sell/analytics/v1/traffic_report?dimension=LISTING&filter=${encodeURIComponent(filter)}&metric=LISTING_VIEWS_TOTAL`;
 
