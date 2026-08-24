@@ -222,11 +222,117 @@ async function getSalesForRange(startTime, endTime, authToken, appId, devId, cer
   }
 }
 
-async function getTraffic() {
-  // eBay's Traffic Report API requires the Analytics API (REST, not Trading API)
-  // and uses OAuth (not Auth'n'Auth tokens) - this is a different auth flow.
-  // Not yet implemented - same placeholder used by all three reports.
-  return [];
+// Same Blobs pattern/site config as getCostStore - holds the long-lived OAuth
+// refresh token saved once by ebay-oauth-callback.js after Nathan's one-time
+// consent click. Kept in Blobs rather than an env var so the callback can
+// store it directly with no manual copy/paste of a secret.
+function getOAuthStore() {
+  return getStore({
+    name: 'nglh-oauth-data',
+    siteID: NGLH_SITE_ID,
+    token: process.env.BLOBS_ACCESS_TOKEN
+  });
+}
+
+// Exchanges the saved refresh token for a short-lived access token. Returns
+// null if the one-time consent hasn't happened yet (nothing saved), or if the
+// exchange fails for any reason - callers treat null as "traffic data not
+// available yet", the same placeholder behaviour this feature is replacing.
+async function getEbayAccessToken() {
+  try {
+    const store = getOAuthStore();
+    const saved = await store.get('ebay-refresh-token', { type: 'json' });
+    if (!saved || !saved.refresh_token) return null;
+
+    const clientId = process.env.EBAY_PROD_APP_ID;
+    const clientSecret = process.env.EBAY_PROD_CERT_ID;
+    if (!clientId || !clientSecret) return null;
+
+    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    const body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: saved.refresh_token,
+      scope: 'https://api.ebay.com/oauth/api_scope/sell.analytics.readonly'
+    });
+
+    const res = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${basicAuth}`
+      },
+      body: body.toString()
+    });
+    const data = await res.json();
+    if (!res.ok || !data.access_token) {
+      console.error('eBay OAuth refresh failed:', JSON.stringify(data));
+      return null;
+    }
+    return data.access_token;
+  } catch (err) {
+    console.error('getEbayAccessToken failed:', err.message);
+    return null;
+  }
+}
+
+function toYyyyMmDd(isoString) {
+  return isoString.slice(0, 10).replace(/-/g, '');
+}
+
+// Per-listing view counts for exactly the items that sold in this report's own
+// period (e.g. "sold 1x Mario Kart 8 today" -> today's views for that listing,
+// not lifetime views). Needs the Analytics API's getTrafficReport, which -
+// unlike the rest of this app's eBay calls - requires OAuth user consent (see
+// ebay-oauth-start.js / ebay-oauth-callback.js), not just an app-level token.
+// itemIds should be just the items that sold in this report's period; returns
+// [] if there are none, or if the one-time consent hasn't happened yet.
+async function getTraffic(itemIds, startTime, endTime) {
+  if (!itemIds || itemIds.length === 0) return [];
+
+  const accessToken = await getEbayAccessToken();
+  if (!accessToken) return [];
+
+  try {
+    const startDate = toYyyyMmDd(startTime);
+    // date_range only has day granularity - push the end date forward a day
+    // so a sale late on the last day of the window isn't cut off by the
+    // time-of-day truncation.
+    const endDate = toYyyyMmDd(new Date(new Date(endTime).getTime() + 24 * 60 * 60 * 1000).toISOString());
+    const filter = `marketplace_ids:{EBAY_GB},date_range:[${startDate}..${endDate}],listing_ids:{${itemIds.join('|')}}`;
+    const url = `https://api.ebay.com/sell/analytics/v1/traffic_report?dimension=LISTING&filter=${encodeURIComponent(filter)}&metric=LISTING_VIEWS_TOTAL`;
+
+    const res = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-EBAY-C-MARKETPLACE-ID': 'EBAY_GB'
+      }
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error('getTrafficReport failed:', JSON.stringify(data));
+      return [];
+    }
+
+    // Logged so a wrong metric-name guess can be spotted and fixed from the
+    // Netlify function logs, since this can't be tested live from the sandbox
+    // this was built in.
+    console.log('getTrafficReport raw response:', JSON.stringify(data));
+
+    const records = data.records || [];
+    return records.map(record => {
+      const dims = record.dimensionValues || [];
+      const itemId = (dims.find(d => d.dimensionKey === 'LISTING') || dims[0] || {}).dimensionValue;
+      const metrics = record.metrics || [];
+      const metric = metrics.find(m => /VIEW/i.test(m.metricKey)) || metrics[0];
+      const views = metric ? parseInt((metric.metricValues && metric.metricValues[0] && metric.metricValues[0].value) || '0', 10) : 0;
+      return { itemId, game: itemIdToGameName[itemId] || itemId, views };
+    });
+  } catch (err) {
+    console.error('getTraffic failed:', err.message);
+    return [];
+  }
 }
 
 function buildEmailHtml(sales, traffic, costs, options) {
@@ -283,7 +389,15 @@ function buildEmailHtml(sales, traffic, costs, options) {
   const totalItems = sales.reduce((sum, s) => sum + s.quantity, 0);
   const totalRevenue = sales.reduce((sum, s) => sum + (s.quantity * s.price), 0);
   const avgSalePrice = totalItems > 0 ? totalRevenue / totalItems : 0;
-  const totalViews = traffic.reduce((sum, t) => sum + t.views, 0);
+  // Only games that actually sold in this report's period, each paired with
+  // its view count for that SAME period (not lifetime views) - null (shown as
+  // "—") means either no data came back yet or the one-time eBay connection
+  // (see ebay-oauth-start.js) hasn't been completed.
+  const gamesWithViews = sales.map(s => {
+    const match = traffic.find(t => t.itemId === s.itemId);
+    return { game: s.game, views: match ? match.views : null };
+  });
+  const totalViews = gamesWithViews.reduce((sum, g) => sum + (g.views || 0), 0);
   const itemsDelta = comparison ? formatDelta(totalItems, comparison.priorItems, comparison.label) : null;
   const revenueDelta = comparison ? formatDelta(totalRevenue, comparison.priorRevenue, comparison.label) : null;
   const salesWithMissingCost = sales.filter(s => lineProfit(s) === null);
@@ -306,10 +420,10 @@ function buildEmailHtml(sales, traffic, costs, options) {
     </tr>`;
   }).join('') : `<tr><td colspan="5" style="padding:20px 8px;text-align:center;color:#94a3b8;">${noSalesText}</td></tr>`;
 
-  const trafficRows = traffic.length > 0 ? traffic.map((t, i) => `
+  const trafficRows = gamesWithViews.length > 0 ? gamesWithViews.map((t, i) => `
     <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
       <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;">${t.game}</td>
-      <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;color:#d97706;font-weight:600;">${t.views}</td>
+      <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;color:#d97706;font-weight:600;">${t.views !== null ? t.views : '—'}</td>
     </tr>`).join('') : '';
 
   const preheaderText = sales.length > 0
@@ -408,7 +522,7 @@ function buildEmailHtml(sales, traffic, costs, options) {
           <tbody>${salesRows}</tbody>
         </table>
         <h2 style="font-size:16px;border-bottom:2px solid #e2e8f0;padding-bottom:10px;">📈 Listing Traffic</h2>
-        ${traffic.length > 0 ? `
+        ${gamesWithViews.length > 0 ? `
         <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:24px;">
           <thead><tr>
             <th style="text-align:left;padding:8px;font-size:11px;color:#64748b;">Game</th>
@@ -417,7 +531,7 @@ function buildEmailHtml(sales, traffic, costs, options) {
           <tbody>${trafficRows}</tbody>
         </table>` : `
         <div style="background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:20px;text-align:center;color:#94a3b8;font-size:13px;margin-bottom:24px;">
-          Coming soon — eBay's traffic data needs a separate connection that isn't set up yet.
+          No sales this period, so no views to show.
         </div>`}
         <div style="text-align:center;margin-top:8px;">
           <a href="https://www.ebay.co.uk/sh/ord" style="display:inline-block;background-color:#0d9488;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 28px;border-radius:10px;">View &amp; Ship Your Orders &rarr;</a>
@@ -468,6 +582,8 @@ module.exports = {
   parseGetOrdersXml,
   getSalesForRange,
   getTraffic,
+  getEbayAccessToken,
+  getOAuthStore,
   getCostStore,
   getCostData,
   mergeCostSnapshot,

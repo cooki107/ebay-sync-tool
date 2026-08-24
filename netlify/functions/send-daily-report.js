@@ -38,9 +38,9 @@ const handler = async function(event, context) {
 
     const hostname = 'api.ebay.com'; // Daily report always uses Production (real sales data)
     const salesResult = await getYesterdaySales(authToken, appId, devId, certId, hostname);
-    const traffic = await getTraffic();
     const costs = await getCostData();
     const sales = salesResult.parsed && salesResult.parsed.length > 0 ? salesResult.parsed : [];
+    const traffic = await getTraffic(sales.map(s => s.itemId), salesResult.startTime, salesResult.endTime);
     const html = buildEmailHtml(sales, traffic, costs, {
       periodStart: salesResult.startTime,
       periodEnd: salesResult.endTime

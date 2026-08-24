@@ -43,9 +43,9 @@ const handler = async function(event, context) {
 
     const salesResult = await getSalesForRange(start.toISOString(), end.toISOString(), authToken, appId, devId, certId, hostname);
     const priorSalesResult = await getSalesForRange(priorStart.toISOString(), priorEnd.toISOString(), authToken, appId, devId, certId, hostname);
-    const traffic = await getTraffic();
     const costs = await getCostData();
     const sales = salesResult.parsed && salesResult.parsed.length > 0 ? salesResult.parsed : [];
+    const traffic = await getTraffic(sales.map(s => s.itemId), start.toISOString(), end.toISOString());
     const priorSales = priorSalesResult.parsed || [];
     const priorRevenue = priorSales.reduce((sum, s) => sum + (s.quantity * s.price), 0);
     const priorItems = priorSales.reduce((sum, s) => sum + s.quantity, 0);
