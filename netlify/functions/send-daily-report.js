@@ -23,7 +23,7 @@ async function getYesterdaySales(authToken, appId, devId, certId, hostname) {
   const startTime = yesterday.toISOString();
   const endTime = now.toISOString();
   const result = await getSalesForRange(startTime, endTime, authToken, appId, devId, certId, hostname);
-  return { ...result, startTime, endTime };
+  return { ...result, startTime, endTime, isMonday };
 }
 
 const handler = async function(event, context) {
@@ -41,7 +41,19 @@ const handler = async function(event, context) {
     const costs = await getCostData();
     const sales = salesResult.parsed && salesResult.parsed.length > 0 ? salesResult.parsed : [];
     const traffic = await getTraffic(sales.map(s => s.itemId), salesResult.startTime, salesResult.endTime);
+
+    // Monday's edition covers Fri/Sat/Sun rather than a single day - branded
+    // as its own "Weekend Report" rather than a "Daily Report" so the copy
+    // matches what it actually covers.
+    const isWeekend = salesResult.isMonday;
     const html = buildEmailHtml(sales, traffic, costs, {
+      reportTitle: isWeekend ? 'Weekend Report' : 'Daily Report',
+      footerCadence: isWeekend
+        ? 'Automated every Monday at 8:00 AM UK time, covering Friday-Sunday'
+        : 'Automated daily at 8:00 AM UK time',
+      noSalesText: isWeekend ? 'No sales recorded this weekend.' : 'No sales recorded yesterday.',
+      noSalesPreheader: isWeekend ? 'No sales this weekend - nothing to report' : 'No sales yesterday - nothing to report today',
+      preheaderPeriod: isWeekend ? 'this weekend' : 'yesterday',
       periodStart: salesResult.startTime,
       periodEnd: salesResult.endTime
     });
@@ -53,9 +65,10 @@ const handler = async function(event, context) {
 
     const totalRevenue = sales.reduce((sum, s) => sum + (s.quantity * s.price), 0);
     const dateStr = new Date().toLocaleDateString('en-GB');
+    const subjectLabel = isWeekend ? 'Weekend Sales Report' : 'Sales Report';
     const subject = sales.length > 0
-      ? `eBay Sales Report - ${dateStr} (£${totalRevenue.toFixed(2)})`
-      : `eBay Sales Report - ${dateStr}`;
+      ? `eBay ${subjectLabel} - ${dateStr} (£${totalRevenue.toFixed(2)})`
+      : `eBay ${subjectLabel} - ${dateStr}`;
 
     const result = await sendViaResend(html, resendApiKey, toEmail, subject);
     return { statusCode: 200, body: JSON.stringify(result) };
