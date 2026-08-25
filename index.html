@@ -341,6 +341,7 @@
         <div id="analysisCard" class="card hidden">
             <label>Games Ready to Sync</label>
             <div class="summary-count" id="summaryCount"></div>
+            <div class="summary-count" id="totalStockCount"></div>
             <div class="table-scroll">
                 <table>
                     <thead><tr><th style="width:28px;"><input type="checkbox" id="selectAllCheckbox" checked title="Select/deselect all"></th><th>Game</th><th>RV Qty</th><th>eBay Qty</th><th>Change</th><th>Status</th></tr></thead>
@@ -739,6 +740,7 @@
                     currentSyncData = syncData;
                     displayAnalysis(syncData);
                     previewCurrentQuantities(syncData);
+                    document.getElementById('totalStockCount').textContent = `${listedItems.length} total game${listedItems.length === 1 ? '' : 's'} currently in stock`;
 
                     // Average purchase_price per game across the whole file (not just
                     // listed rows) and save it so the daily/weekly/monthly emails can
