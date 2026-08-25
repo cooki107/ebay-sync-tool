@@ -3,11 +3,12 @@
 // template as the daily report (see report-shared.js).
 
 const { schedule } = require('@netlify/functions');
-const { getSalesForRange, getTraffic, getCostData, buildEmailHtml, sendViaResend } = require('./report-shared');
+const { getSalesForRange, getTraffic, getCostData, buildEmailHtml, sendViaResend, isUkMorningRunTime } = require('./report-shared');
 
-// 8am UK time = 7am UTC in summer (BST), 8am UTC in winter (GMT) - same
-// seasonal caveat as the daily report's cron schedule.
-const CRON_SCHEDULE = '0 7 1 * *'; // 07:00 UTC on the 1st of every month
+// Fires at both possible UTC hours for 8am UK time and lets isUkMorningRunTime()
+// (see report-shared.js) skip whichever one isn't really 8am UK local right
+// now - same DST-proofing as the daily report, no seasonal edits needed.
+const CRON_SCHEDULE = '0 7,8 1 * *'; // 07:00 and 08:00 UTC on the 1st of every month
 
 // First and last instant (UTC) of the calendar month "monthsAgo" months before
 // "now". monthsAgo=1 is last month (what the report covers), 2 is the month
@@ -24,6 +25,10 @@ function formatMonthLabel(start) {
 
 const handler = async function(event, context) {
   try {
+    if (!isUkMorningRunTime(new Date())) {
+      return { statusCode: 200, body: 'Skipped - not 8am UK local time on this invocation' };
+    }
+
     const authToken = process.env.EBAY_PRODUCTION_TOKEN || '';
     const appId = process.env.EBAY_PROD_APP_ID || '';
     const devId = process.env.EBAY_PROD_DEV_ID || '';

@@ -585,6 +585,20 @@ async function sendViaResend(htmlContent, resendApiKey, toEmail, subject) {
   });
 }
 
+// Netlify's scheduled-function cron always fires in UTC and can't itself shift
+// with UK clock changes (BST in summer, GMT in winter), so a fixed "7am UTC"
+// schedule silently drifts an hour off twice a year. The fix: each report's
+// cron fires at BOTH possible UTC hours daily, and this guard only lets the
+// invocation that's actually 8am UK local time do real work - the other one
+// each day is a harmless no-op (checked first, before any eBay/email calls).
+function isUkMorningRunTime(now, targetHourUk = 8) {
+  const ukHour = parseInt(
+    new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: 'numeric', hour12: false }).format(now),
+    10
+  );
+  return ukHour === targetHourUk;
+}
+
 module.exports = {
   itemIdToGameName,
   ebayApiCall,
@@ -597,5 +611,6 @@ module.exports = {
   getCostData,
   mergeCostSnapshot,
   buildEmailHtml,
-  sendViaResend
+  sendViaResend,
+  isUkMorningRunTime
 };
