@@ -341,7 +341,6 @@
         <div id="analysisCard" class="card hidden">
             <label>Games Ready to Sync</label>
             <div class="summary-count" id="summaryCount"></div>
-            <div class="summary-count" id="totalStockCount"></div>
             <div class="table-scroll">
                 <table>
                     <thead><tr><th style="width:28px;"><input type="checkbox" id="selectAllCheckbox" checked title="Select/deselect all"></th><th>Game</th><th>RV Qty</th><th>eBay Qty</th><th>Change</th><th>Status</th></tr></thead>
@@ -349,6 +348,8 @@
                 </table>
             </div>
         </div>
+
+        <p class="hint" id="totalStockHint" style="text-align:center;margin:16px 0 4px;"></p>
     </div>
 
     <div id="syncActionBar" class="sync-action-bar hidden">
@@ -481,6 +482,16 @@
             el.textContent = `Last synced: ${datePart}, ${timePart}`;
         }
         updateLastSyncedDisplay();
+
+        // Also a local, per-device convenience - persists the count from your
+        // last upload so it's visible at a glance without needing to
+        // re-upload, right up until the next file is loaded.
+        function updateTotalStockDisplay() {
+            const count = localStorage.getItem('nglh_total_stock_count');
+            const el = document.getElementById('totalStockHint');
+            el.textContent = count ? `${count} total game${count === '1' ? '' : 's'} currently in stock` : '';
+        }
+        updateTotalStockDisplay();
 
         // Manual light/dark toggle, overriding prefers-color-scheme. The actual
         // switch (data-theme attribute + CSS variables) is already handled by
@@ -740,7 +751,8 @@
                     currentSyncData = syncData;
                     displayAnalysis(syncData);
                     previewCurrentQuantities(syncData);
-                    document.getElementById('totalStockCount').textContent = `${listedItems.length} total game${listedItems.length === 1 ? '' : 's'} currently in stock`;
+                    localStorage.setItem('nglh_total_stock_count', String(listedItems.length));
+                    updateTotalStockDisplay();
 
                     // Average purchase_price per game across the whole file (not just
                     // listed rows) and save it so the daily/weekly/monthly emails can
