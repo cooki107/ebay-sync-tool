@@ -102,6 +102,19 @@
         .logo svg { width: 100%; height: 100%; display: block; }
         h1 { font-size: 24px; font-weight: 700; }
         .subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+        .stat-bar { display: flex; gap: 10px; margin-top: 14px; }
+        .stat-tile {
+            flex: 1; background: var(--surface); border: 1px solid var(--border);
+            border-radius: 12px; padding: 10px 8px; text-align: center;
+            box-shadow: 0 2px 6px var(--shadow);
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        .stat-tile .stat-icon { font-size: 16px; line-height: 1; }
+        .stat-tile .stat-label {
+            font-size: 10px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.02em; margin-top: 4px; color: var(--primary);
+        }
+        .stat-tile .stat-value { font-size: 17px; font-weight: 700; margin-top: 2px; color: var(--text); }
         .card {
             background: var(--surface); border-radius: 14px; padding: 18px;
             margin-bottom: 14px; box-shadow: 0 2px 6px var(--shadow); border: 1px solid var(--border);
@@ -285,8 +298,19 @@
             <div class="logo"><svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="bs" cx="50%" cy="30%" r="70%"><stop offset="0%" style="stop-color:#1a1a1a"/><stop offset="100%" style="stop-color:#050505"/></radialGradient></defs><circle cx="100" cy="100" r="97" fill="none" stroke="#6bbdae" stroke-width="2.5"/><circle cx="100" cy="100" r="90" fill="none" stroke="#6bbdae" stroke-width="1.5"/><circle cx="100" cy="100" r="85" fill="url(#bs)"/><text x="100" y="118" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800" fill="#fff" text-anchor="middle">NGLH</text></svg></div>
             <h1>NGLH eBay Sync</h1>
             <p class="subtitle">Live inventory sync</p>
-            <p class="hint" id="lastSyncedHint" style="margin-top:4px;"></p>
-            <a href="#" id="showHistoryLink" style="font-size:11px;color:var(--text-muted);display:none;">View recent syncs</a>
+            <div class="stat-bar">
+                <div class="stat-tile">
+                    <div class="stat-icon">📦</div>
+                    <div class="stat-label">In Stock</div>
+                    <div class="stat-value" id="stockStatValue">—</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-icon">🕐</div>
+                    <div class="stat-label" style="color:var(--pending-text);">Last Synced</div>
+                    <div class="stat-value" id="syncStatValue">—</div>
+                </div>
+            </div>
+            <a href="#" id="showHistoryLink" style="font-size:11px;color:var(--text-muted);display:none;margin-top:10px;">View recent syncs</a>
         </header>
 
         <div class="card hidden" id="historyCard">
@@ -348,8 +372,6 @@
                 </table>
             </div>
         </div>
-
-        <p class="hint" id="totalStockHint" style="text-align:center;margin:16px 0 4px;"></p>
     </div>
 
     <div id="syncActionBar" class="sync-action-bar hidden">
@@ -474,12 +496,12 @@
         // quick reassurance of when this device last ran a sync.
         function updateLastSyncedDisplay() {
             const iso = localStorage.getItem('nglh_last_synced');
-            const el = document.getElementById('lastSyncedHint');
-            if (!iso) { el.textContent = ''; return; }
+            const el = document.getElementById('syncStatValue');
+            if (!iso) { el.textContent = '—'; return; }
             const d = new Date(iso);
             const datePart = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
             const timePart = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-            el.textContent = `Last synced: ${datePart}, ${timePart}`;
+            el.textContent = `${datePart}, ${timePart}`;
         }
         updateLastSyncedDisplay();
 
@@ -488,8 +510,7 @@
         // re-upload, right up until the next file is loaded.
         function updateTotalStockDisplay() {
             const count = localStorage.getItem('nglh_total_stock_count');
-            const el = document.getElementById('totalStockHint');
-            el.textContent = count ? `${count} total game${count === '1' ? '' : 's'} currently in stock` : '';
+            document.getElementById('stockStatValue').textContent = count || '—';
         }
         updateTotalStockDisplay();
 
