@@ -71,6 +71,27 @@
             display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
         .theme-toggle-btn:hover:not(:disabled) { transform: none; box-shadow: 0 2px 6px var(--shadow); }
+        .menu-btn {
+            position: absolute; top: calc(16px + env(safe-area-inset-top)); right: 58px; z-index: 5;
+            width: 34px; height: 34px; border-radius: 50%; padding: 0;
+            background: var(--surface); border: 1px solid var(--border); color: var(--text);
+            box-shadow: 0 2px 6px var(--shadow); font-size: 17px; line-height: 1; font-weight: 700;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
+        .menu-btn:hover:not(:disabled) { transform: none; box-shadow: 0 2px 6px var(--shadow); }
+        .menu-dropdown {
+            position: absolute; top: calc(54px + env(safe-area-inset-top)); right: 16px; z-index: 6;
+            background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+            box-shadow: 0 8px 24px var(--shadow); min-width: 210px; overflow: hidden;
+            animation: cardIn 0.2s ease both;
+        }
+        .menu-dropdown button {
+            display: block; width: 100%; text-align: left; background: none; border: none;
+            padding: 12px 14px; font-size: 13px; color: var(--text); cursor: pointer;
+            font-family: inherit; transform: none; box-shadow: none;
+        }
+        .menu-dropdown button:hover:not(:disabled) { background: var(--bg); transform: none; box-shadow: none; }
+        .menu-dropdown button + button { border-top: 1px solid var(--border); }
         html, body {
             background: var(--bg);
         }
@@ -294,6 +315,12 @@
     </div>
     <div class="container hidden">
         <button type="button" class="theme-toggle-btn" id="themeToggleBtn" aria-label="Toggle light/dark theme">🌙</button>
+        <button type="button" class="menu-btn" id="menuBtn" aria-label="Settings menu">⋮</button>
+        <div class="menu-dropdown hidden" id="menuDropdown">
+            <button type="button" id="menuTokenBtn">🔑 Manage OAuth Token</button>
+            <button type="button" id="menuEnvBtn">🧪 Switch Environment</button>
+            <button type="button" id="menuResetBtn">🗑️ Reset Profit Tracking Data</button>
+        </div>
         <header>
             <div class="logo"><svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="bs" cx="50%" cy="30%" r="70%"><stop offset="0%" style="stop-color:#1a1a1a"/><stop offset="100%" style="stop-color:#050505"/></radialGradient></defs><circle cx="100" cy="100" r="97" fill="none" stroke="#6bbdae" stroke-width="2.5"/><circle cx="100" cy="100" r="90" fill="none" stroke="#6bbdae" stroke-width="1.5"/><circle cx="100" cy="100" r="85" fill="url(#bs)"/><text x="100" y="118" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800" fill="#fff" text-anchor="middle">NGLH</text></svg></div>
             <h1>NGLH eBay Sync</h1>
@@ -326,14 +353,7 @@
             </div>
             <div class="hint" id="envHint">⚠️ LIVE MODE — this will update your real eBay listings.</div>
         </div>
-        <div style="text-align:right;margin-bottom:8px;">
-            <a href="#" id="showEnvLink" style="font-size:11px;color:var(--text-muted);">Advanced: switch to Sandbox for testing</a>
-        </div>
-        <div style="text-align:right;margin-bottom:8px;">
-            <a href="#" id="resetCostDataLink" style="font-size:11px;color:var(--text-muted);">Advanced: reset profit tracking data</a>
-        </div>
-
-        <div class="card">
+        <div class="card hidden" id="tokenCard">
             <div id="tokenEntryState">
                 <label id="tokenLabel">Sandbox OAuth Token</label>
                 <input type="password" id="authToken" placeholder="Paste your Sandbox token here">
@@ -450,14 +470,32 @@
 
         document.getElementById('envSandbox').addEventListener('click', () => setEnvironment('sandbox'));
         document.getElementById('envProduction').addEventListener('click', () => setEnvironment('production'));
-        document.getElementById('showEnvLink').addEventListener('click', (e) => {
-            e.preventDefault();
-            document.getElementById('envCard').classList.remove('hidden');
-            e.target.style.display = 'none';
+
+        // Settings menu - keeps the token/environment cards and the profit-reset
+        // action tucked away by default so the main page only shows what's
+        // needed day-to-day, while still being one tap away when needed.
+        const menuBtn = document.getElementById('menuBtn');
+        const menuDropdown = document.getElementById('menuDropdown');
+        menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menuDropdown.classList.toggle('hidden');
+        });
+        document.addEventListener('click', (e) => {
+            if (!menuDropdown.classList.contains('hidden') && !menuDropdown.contains(e.target) && e.target !== menuBtn) {
+                menuDropdown.classList.add('hidden');
+            }
         });
 
-        document.getElementById('resetCostDataLink').addEventListener('click', (e) => {
-            e.preventDefault();
+        document.getElementById('menuTokenBtn').addEventListener('click', () => {
+            document.getElementById('tokenCard').classList.toggle('hidden');
+            menuDropdown.classList.add('hidden');
+        });
+        document.getElementById('menuEnvBtn').addEventListener('click', () => {
+            document.getElementById('envCard').classList.toggle('hidden');
+            menuDropdown.classList.add('hidden');
+        });
+        document.getElementById('menuResetBtn').addEventListener('click', () => {
+            menuDropdown.classList.add('hidden');
             showModal({
                 title: 'Reset profit tracking data?',
                 body: 'This clears all recorded purchase costs and per-unit sale history used to calculate profit in your reports. It rebuilds automatically from your next sync, but any exact cost matches recorded so far will be lost - only use this if profit figures look wrong and you want a clean slate.',
@@ -482,7 +520,7 @@
         });
 
         // Default straight to Production - this is the everyday mode now that
-        // it's confirmed working. Sandbox is tucked behind the "Advanced" link.
+        // it's confirmed working. Sandbox is tucked behind the settings menu.
         setEnvironment('production');
 
         document.getElementById('enterToolBtn').addEventListener('click', () => {
@@ -647,11 +685,15 @@
 
         // Shows the "token saved" summary once a token exists for this environment,
         // hiding the input so it's not sat on screen every time the tool is opened.
+        // The whole card stays tucked away behind the menu once a token is saved -
+        // only a brand new device/environment with nothing saved yet shows it
+        // openly, so first-time setup still just works without extra clicks.
         function updateTokenVisibility() {
             const hasToken = !!localStorage.getItem(`nglh_token_${currentEnvironment}`);
             document.getElementById('tokenEntryState').classList.toggle('hidden', hasToken);
             document.getElementById('tokenSavedState').classList.toggle('hidden', !hasToken);
             document.getElementById('tokenSavedLabel').textContent = currentEnvironment === 'production' ? 'Production' : 'Sandbox';
+            document.getElementById('tokenCard').classList.toggle('hidden', hasToken);
         }
 
         // Save the token automatically as you type, keyed separately per environment
