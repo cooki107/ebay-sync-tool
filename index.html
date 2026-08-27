@@ -58,20 +58,27 @@
         html, body { background: var(--bg); }
         /* The aurora field is fixed to the viewport (not the scrolling body) so
            it reads as one continuous atmosphere behind the gate screen and the
-           tool alike, rather than a background that's tied to page content. */
+           tool alike. A strong radial anchor near the top keeps it clearly
+           visible where the eye lands first, with the diagonal ribbon adding
+           slow ambient drift lower down the page. */
         body::before {
-            content: ''; position: fixed; inset: -10% -20%; z-index: -1; pointer-events: none;
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
             background:
-                linear-gradient(100deg, transparent 15%, var(--aurora-1) 45%, var(--aurora-2) 60%, transparent 85%),
-                linear-gradient(135deg, var(--bg) 0%, var(--bg-2) 55%, var(--bg) 100%);
-            filter: blur(40px);
+                radial-gradient(ellipse 90% 45% at 50% 0%, var(--aurora-1) 0%, transparent 65%),
+                linear-gradient(115deg, transparent 10%, var(--aurora-2) 40%, var(--aurora-1) 55%, transparent 80%),
+                linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 45%, var(--bg) 100%);
+        }
+        body::after {
+            content: ''; position: fixed; inset: -15% -25%; z-index: -1; pointer-events: none;
+            background: linear-gradient(115deg, transparent 30%, rgba(34,211,238,0.16) 48%, transparent 66%);
+            filter: blur(50px);
             animation: auroraDrift 16s ease-in-out infinite alternate;
         }
         @keyframes auroraDrift {
-            0% { transform: translateX(-3%) rotate(-6deg); }
-            100% { transform: translateX(3%) rotate(-6deg); }
+            0% { transform: translateX(-4%) rotate(-6deg); }
+            100% { transform: translateX(4%) rotate(-6deg); }
         }
-        @media (prefers-reduced-motion: reduce) { body::before { animation: none; } }
+        @media (prefers-reduced-motion: reduce) { body::after { animation: none; } }
         body {
             font-family: var(--font-body);
             color: var(--text);
@@ -95,19 +102,19 @@
         .subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
         .stat-bar { display: flex; gap: 10px; margin-top: 14px; }
         .stat-tile {
-            flex: 1; background: var(--surface); border: 1px solid var(--border);
-            border-radius: 14px; padding: 10px 8px; text-align: center;
-            box-shadow: 0 4px 16px var(--shadow);
+            flex: 1; background: linear-gradient(160deg, rgba(255,255,255,0.075), rgba(255,255,255,0.03));
+            border: 1px solid var(--border); border-radius: 18px; padding: 18px 12px; text-align: center;
+            box-shadow: 0 4px 20px var(--shadow), 0 0 24px -8px var(--primary-glow);
             backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
         }
-        .stat-tile .stat-icon { font-size: 16px; line-height: 1; }
+        .stat-tile .stat-icon { font-size: 20px; line-height: 1; }
         .stat-tile .stat-label {
-            font-size: 10px; font-weight: 600; text-transform: uppercase;
-            letter-spacing: 0.02em; margin-top: 4px; color: var(--primary);
+            font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.08em; margin-top: 6px; color: var(--primary);
         }
         .stat-tile .stat-value {
             font-family: var(--font-mono); font-variant-numeric: tabular-nums;
-            font-size: 17px; font-weight: 600; margin-top: 2px; color: var(--text);
+            font-size: 26px; font-weight: 600; margin-top: 4px; color: var(--text);
         }
         .card {
             background: var(--surface); border-radius: 16px; padding: 18px;
@@ -133,6 +140,18 @@
         input[type="text"]:focus, input[type="password"]:focus {
             outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow);
         }
+        .visually-hidden {
+            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+        }
+        .dropzone {
+            display: block; border: 1px dashed rgba(34,211,238,0.4); border-radius: 12px;
+            padding: 22px 12px; text-align: center; font-size: 13px; color: var(--text-secondary);
+            cursor: pointer; transition: border-color 0.2s ease, background 0.2s ease;
+        }
+        .dropzone:hover, .dropzone.drag-over { border-color: var(--primary); background: rgba(34,211,238,0.06); }
+        .dropzone strong { color: var(--primary); font-weight: 600; }
+        .dropzone:has(:focus-visible) { outline: 2px solid var(--primary); outline-offset: 2px; }
         .hint { font-size: 11px; color: var(--text-muted); }
         .history-row {
             display: flex; justify-content: space-between; align-items: baseline;
@@ -359,7 +378,10 @@
 
         <div class="card" id="uploadCard" style="opacity:0.5;pointer-events:none;">
             <label>Upload Rv Companion XLSX</label>
-            <input type="file" id="fileInput" accept=".xlsx,.xls">
+            <label class="dropzone" for="fileInput" id="dropzone">
+                <span id="dropzoneText">Drop file or <strong>choose file</strong></span>
+            </label>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" class="visually-hidden">
             <div id="uploadStatus" class="status"></div>
         </div>
 
@@ -691,11 +713,20 @@
             }
         });
 
-        document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+        document.getElementById('fileInput').addEventListener('change', (e) => handleFileUpload(e.target.files[0]));
 
-        function handleFileUpload(e) {
-            const file = e.target.files[0];
+        const dropzone = document.getElementById('dropzone');
+        dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('drag-over');
+            handleFileUpload(e.dataTransfer.files[0]);
+        });
+
+        function handleFileUpload(file) {
             if (!file) return;
+            document.getElementById('dropzoneText').innerHTML = `Selected: <strong>${file.name}</strong>`;
 
             const statusEl = document.getElementById('uploadStatus');
             statusEl.className = 'status show';
