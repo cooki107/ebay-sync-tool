@@ -9,70 +9,32 @@
     <meta name="apple-mobile-web-app-title" content="eBay Sync">
     <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png">
     <link rel="icon" type="image/png" href="/icon-180.png">
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0d9488">
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b1120">
+    <meta name="theme-color" content="#070c16">
     <title>NGLH eBay Sync</title>
-    <script>
-        // Applied before the stylesheet renders anything, so a saved manual
-        // theme choice takes effect immediately instead of flashing the
-        // system-default theme first and then switching.
-        (function() {
-            try {
-                var saved = localStorage.getItem('nglh_theme');
-                if (saved === 'light' || saved === 'dark') document.documentElement.setAttribute('data-theme', saved);
-            } catch (e) {}
-        })();
-    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        /* "Trading Terminal" - a single deliberate dark identity, not a
+           light/dark pair. Aurora-teal glass over a deep navy field, with
+           IBM Plex Mono for anything numeric so the figures you're scanning
+           each morning read like a real dashboard readout. */
         :root {
-            --primary: #0d9488; --primary-dark: #0f766e; --success: #059669;
-            --success-light: #ecfdf5; --danger: #dc2626; --danger-light: #fef2f2;
-            --bg: #f8fafc; --surface: #ffffff; --border: #e2e8f0;
-            --text: #1e293b; --text-secondary: #64748b; --text-muted: #94a3b8;
-            --shadow: rgba(0,0,0,0.06); --primary-glow: rgba(13,148,136,0.25);
-            --pending-bg: #fef3c7; --pending-text: #92400e;
-            color-scheme: light dark;
+            --primary: #22d3ee; --primary-dark: #14b8a6; --success: #34d399;
+            --success-light: rgba(52,211,153,0.14); --danger: #f87171; --danger-light: rgba(248,113,113,0.16);
+            --bg: #070c16; --bg-2: #0d1b30; --surface: rgba(255,255,255,0.055); --border: rgba(255,255,255,0.14);
+            --text: #edf3f6; --text-secondary: #93a6b8; --text-muted: #6c8194;
+            --shadow: rgba(0,0,0,0.35); --primary-glow: rgba(34,211,238,0.35);
+            --pending-bg: rgba(251,191,36,0.16); --pending-text: #fbbf24;
+            --aurora-1: rgba(20,184,166,0.22); --aurora-2: rgba(56,189,248,0.16);
+            --font-display: 'Sora', -apple-system, sans-serif;
+            --font-body: 'IBM Plex Sans', -apple-system, sans-serif;
+            --font-mono: 'IBM Plex Mono', 'SF Mono', monospace;
+            color-scheme: dark;
         }
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --primary: #14b8a6; --primary-dark: #0d9488; --success: #34d399;
-                --success-light: rgba(52,211,153,0.14); --danger: #f87171; --danger-light: rgba(248,113,113,0.14);
-                --bg: #0b1120; --surface: #151f32; --border: #263449;
-                --text: #e2e8f0; --text-secondary: #94a3b8; --text-muted: #64748b;
-                --shadow: rgba(0,0,0,0.4); --primary-glow: rgba(20,184,166,0.3);
-                --pending-bg: rgba(251,191,36,0.15); --pending-text: #fbbf24;
-            }
-        }
-        /* Manual toggle overrides - higher specificity than the bare :root rules
-           above (via the attribute selector) so a saved preference always wins
-           over prefers-color-scheme, in either direction. */
-        :root[data-theme="light"] {
-            --primary: #0d9488; --primary-dark: #0f766e; --success: #059669;
-            --success-light: #ecfdf5; --danger: #dc2626; --danger-light: #fef2f2;
-            --bg: #f8fafc; --surface: #ffffff; --border: #e2e8f0;
-            --text: #1e293b; --text-secondary: #64748b; --text-muted: #94a3b8;
-            --shadow: rgba(0,0,0,0.06); --primary-glow: rgba(13,148,136,0.25);
-            --pending-bg: #fef3c7; --pending-text: #92400e;
-        }
-        :root[data-theme="dark"] {
-            --primary: #14b8a6; --primary-dark: #0d9488; --success: #34d399;
-            --success-light: rgba(52,211,153,0.14); --danger: #f87171; --danger-light: rgba(248,113,113,0.14);
-            --bg: #0b1120; --surface: #151f32; --border: #263449;
-            --text: #e2e8f0; --text-secondary: #94a3b8; --text-muted: #64748b;
-            --shadow: rgba(0,0,0,0.4); --primary-glow: rgba(20,184,166,0.3);
-            --pending-bg: rgba(251,191,36,0.15); --pending-text: #fbbf24;
-        }
-        .theme-toggle-btn {
-            position: absolute; top: calc(16px + env(safe-area-inset-top)); right: 16px; z-index: 5;
-            width: 34px; height: 34px; border-radius: 50%; padding: 0;
-            background: var(--surface); border: 1px solid var(--border); color: var(--text);
-            box-shadow: 0 2px 6px var(--shadow); font-size: 15px; line-height: 1;
-            display: flex; align-items: center; justify-content: center; cursor: pointer;
-        }
-        .theme-toggle-btn:hover:not(:disabled) { transform: none; box-shadow: 0 2px 6px var(--shadow); }
         .menu-btn {
-            position: absolute; top: calc(16px + env(safe-area-inset-top)); right: 58px; z-index: 5;
+            position: absolute; top: calc(16px + env(safe-area-inset-top)); right: 16px; z-index: 5;
             width: 34px; height: 34px; border-radius: 50%; padding: 0;
             background: var(--surface); border: 1px solid var(--border); color: var(--text);
             box-shadow: 0 2px 6px var(--shadow); font-size: 17px; line-height: 1; font-weight: 700;
@@ -81,7 +43,8 @@
         .menu-btn:hover:not(:disabled) { transform: none; box-shadow: 0 2px 6px var(--shadow); }
         .menu-dropdown {
             position: absolute; top: calc(54px + env(safe-area-inset-top)); right: 16px; z-index: 6;
-            background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+            background: #0d1626; border: 1px solid var(--border); border-radius: 12px;
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
             box-shadow: 0 8px 24px var(--shadow); min-width: 210px; overflow: hidden;
             animation: cardIn 0.2s ease both;
         }
@@ -90,23 +53,30 @@
             padding: 12px 14px; font-size: 13px; color: var(--text); cursor: pointer;
             font-family: inherit; transform: none; box-shadow: none;
         }
-        .menu-dropdown button:hover:not(:disabled) { background: var(--bg); transform: none; box-shadow: none; }
+        .menu-dropdown button:hover:not(:disabled) { background: rgba(255,255,255,0.06); transform: none; box-shadow: none; }
         .menu-dropdown button + button { border-top: 1px solid var(--border); }
-        html, body {
-            background: var(--bg);
+        html, body { background: var(--bg); }
+        /* The aurora field is fixed to the viewport (not the scrolling body) so
+           it reads as one continuous atmosphere behind the gate screen and the
+           tool alike, rather than a background that's tied to page content. */
+        body::before {
+            content: ''; position: fixed; inset: -10% -20%; z-index: -1; pointer-events: none;
+            background:
+                linear-gradient(100deg, transparent 15%, var(--aurora-1) 45%, var(--aurora-2) 60%, transparent 85%),
+                linear-gradient(135deg, var(--bg) 0%, var(--bg-2) 55%, var(--bg) 100%);
+            filter: blur(40px);
+            animation: auroraDrift 16s ease-in-out infinite alternate;
         }
+        @keyframes auroraDrift {
+            0% { transform: translateX(-3%) rotate(-6deg); }
+            100% { transform: translateX(3%) rotate(-6deg); }
+        }
+        @media (prefers-reduced-motion: reduce) { body::before { animation: none; } }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-family: var(--font-body);
             color: var(--text);
             padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
-            transition: background 0.3s ease, color 0.3s ease;
         }
-        /* While the gate screen is up, the tool's content is hidden so body's own
-           box is tiny - on a mobile browser whose viewport briefly exceeds the
-           document (e.g. iOS Safari's dynamic toolbar), the html canvas beyond
-           body's box would otherwise show through as a stray white gap below the
-           fixed-position gate instead of blending into its dark background. */
-        html.gate-active, body.gate-active { background: #050505; }
         .container { max-width: 560px; margin: 0 auto; position: relative; }
         header { text-align: center; margin-bottom: 20px; animation: dropIn 0.5s ease both; }
         /* The gate screen just delivered the full branding moment a second ago -
@@ -121,25 +91,29 @@
         }
         .logo:hover { transform: scale(1.04) rotate(-1deg); }
         .logo svg { width: 100%; height: 100%; display: block; }
-        h1 { font-size: 24px; font-weight: 700; }
+        h1 { font-family: var(--font-display); font-size: 24px; font-weight: 700; }
         .subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
         .stat-bar { display: flex; gap: 10px; margin-top: 14px; }
         .stat-tile {
             flex: 1; background: var(--surface); border: 1px solid var(--border);
-            border-radius: 12px; padding: 10px 8px; text-align: center;
-            box-shadow: 0 2px 6px var(--shadow);
-            transition: background 0.3s ease, border-color 0.3s ease;
+            border-radius: 14px; padding: 10px 8px; text-align: center;
+            box-shadow: 0 4px 16px var(--shadow);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
         }
         .stat-tile .stat-icon { font-size: 16px; line-height: 1; }
         .stat-tile .stat-label {
             font-size: 10px; font-weight: 600; text-transform: uppercase;
             letter-spacing: 0.02em; margin-top: 4px; color: var(--primary);
         }
-        .stat-tile .stat-value { font-size: 17px; font-weight: 700; margin-top: 2px; color: var(--text); }
+        .stat-tile .stat-value {
+            font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+            font-size: 17px; font-weight: 600; margin-top: 2px; color: var(--text);
+        }
         .card {
-            background: var(--surface); border-radius: 14px; padding: 18px;
-            margin-bottom: 14px; box-shadow: 0 2px 6px var(--shadow); border: 1px solid var(--border);
-            transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.25s ease, opacity 0.3s ease, filter 0.3s ease;
+            background: var(--surface); border-radius: 16px; padding: 18px;
+            margin-bottom: 14px; box-shadow: 0 4px 20px var(--shadow); border: 1px solid var(--border);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            transition: opacity 0.3s ease, filter 0.3s ease;
             animation: cardIn 0.45s ease both;
         }
         .card:nth-of-type(1) { animation-delay: 0.03s; }
@@ -152,8 +126,8 @@
         label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
         input[type="file"], input[type="text"], input[type="password"] {
             width: 100%; padding: 10px; border: 1px solid var(--border);
-            border-radius: 8px; font-size: 14px; margin-bottom: 8px;
-            background: var(--surface); color: var(--text);
+            border-radius: 8px; font-size: 14px; font-family: var(--font-body); margin-bottom: 8px;
+            background: rgba(255,255,255,0.04); color: var(--text);
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
         input[type="text"]:focus, input[type="password"]:focus {
@@ -168,16 +142,19 @@
         .history-row .history-when { color: var(--text); font-weight: 600; white-space: nowrap; }
         .history-row .history-detail { color: var(--text-secondary); text-align: right; }
         button {
-            width: 100%; padding: 13px; font-size: 15px; font-weight: 600;
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white; border: none; border-radius: 10px; cursor: pointer;
-            box-shadow: 0 4px 12px var(--primary-glow);
+            width: 100%; padding: 13px; font-family: var(--font-display); font-size: 15px; font-weight: 600;
+            background: linear-gradient(120deg, var(--primary), var(--success));
+            color: #04222a; border: none; border-radius: 999px; cursor: pointer;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.14) inset, 0 6px 20px var(--primary-glow);
             transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.25s ease, color 0.25s ease, opacity 0.15s ease;
         }
-        button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px var(--primary-glow); }
+        button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(255,255,255,0.2) inset, 0 8px 26px var(--primary-glow); }
         button:active:not(:disabled) { transform: scale(0.97); }
-        button:disabled { background: var(--text-muted); box-shadow: none; cursor: not-allowed; }
-        button.secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); box-shadow: none; }
+        button:disabled { background: var(--text-muted); color: var(--bg); box-shadow: none; cursor: not-allowed; }
+        button.secondary {
+            background: var(--surface); color: var(--primary); border: 1px solid rgba(34,211,238,0.35);
+            box-shadow: none; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        }
         .status { margin-top: 10px; padding: 10px; border-radius: 8px; font-size: 12px; display: none; }
         .status.show { display: block; animation: cardIn 0.3s ease both; }
         .status.success { background: var(--success-light); color: var(--success); }
@@ -201,6 +178,7 @@
         tr.flash-failed td { animation: flashFailed 1.1s ease; }
         @keyframes flashSuccess { 0% { background: var(--success-light); } 100% { background: transparent; } }
         @keyframes flashFailed { 0% { background: var(--danger-light); } 100% { background: transparent; } }
+        .numeric-cell { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
         .change-pos { color: var(--success); font-weight: 600; }
         .change-neg { color: var(--danger); font-weight: 600; }
         .change-zero { color: var(--text-muted); }
@@ -238,10 +216,12 @@
             .thumb { width: 26px; height: 26px; }
             .row-status { font-size: 9px; padding: 2px 6px; }
         }
+        /* Deliberately no background of its own - the shared aurora field
+           (body::before) shows straight through, so the splash screen and the
+           tool behind it read as one continuous atmosphere, not two looks. */
         #gateScreen {
             position: fixed; inset: 0; z-index: 9999;
             display: flex; align-items: center; justify-content: center;
-            background: radial-gradient(circle at 50% 32%, #16221f 0%, #050505 72%);
             padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
             transition: opacity 0.45s ease, visibility 0.45s ease;
         }
@@ -252,25 +232,26 @@
             animation: gatePulse 2.6s ease-in-out infinite;
         }
         @keyframes gatePulse {
-            0%, 100% { box-shadow: 0 0 30px 4px rgba(107,189,174,0.3); }
-            50% { box-shadow: 0 0 48px 12px rgba(107,189,174,0.55); }
+            0%, 100% { box-shadow: 0 0 30px 4px var(--primary-glow); }
+            50% { box-shadow: 0 0 52px 14px rgba(34,211,238,0.55); }
         }
-        .gate-title { color: #fff; font-size: 28px; font-weight: 800; margin-bottom: 8px; }
-        .gate-subtitle { color: #94a3b8; font-size: 14px; margin-bottom: 36px; }
+        .gate-title { font-family: var(--font-display); color: var(--text); font-size: 28px; font-weight: 700; margin-bottom: 8px; text-wrap: balance; }
+        .gate-subtitle { color: var(--text-secondary); font-size: 14px; margin-bottom: 36px; }
         .gate-enter-btn {
-            background-color: var(--primary); color: #fff; border: none; border-radius: 12px;
-            padding: 16px 40px; font-size: 16px; font-weight: 700; cursor: pointer;
-            box-shadow: 0 8px 24px rgba(13,148,136,0.4);
-            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+            width: auto; font-family: var(--font-display);
+            background: linear-gradient(120deg, var(--primary), var(--success)); color: #04222a;
+            border: none; border-radius: 999px; padding: 16px 40px; font-size: 16px; font-weight: 600; cursor: pointer;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.14) inset, 0 10px 28px var(--primary-glow);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
-        .gate-enter-btn:hover { transform: translateY(-2px); background-color: var(--primary-dark); }
+        .gate-enter-btn:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px rgba(255,255,255,0.2) inset, 0 12px 32px var(--primary-glow); }
         .gate-enter-btn:active { transform: scale(0.96); }
         .sync-action-bar {
             position: fixed; left: 0; right: 0; bottom: 0; z-index: 500;
-            background: var(--surface); border-top: 1px solid var(--border);
+            background: #0d1626; border-top: 1px solid var(--border);
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
             padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
             box-shadow: 0 -4px 16px var(--shadow);
-            transition: background 0.3s ease, border-color 0.3s ease;
         }
         .sync-action-inner { max-width: 560px; margin: 0 auto; }
         .sync-action-inner .status { margin-bottom: 0; margin-top: 10px; }
@@ -289,9 +270,10 @@
         }
         .modal-overlay.hidden { display: none; }
         .modal-box {
-            background: var(--surface); border-radius: 16px; padding: 22px;
+            background: #0d1626; border-radius: 16px; padding: 22px;
             max-width: 420px; width: 100%; max-height: 80vh; overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
             animation: cardIn 0.22s ease both;
             border: 1px solid var(--border);
         }
@@ -314,7 +296,6 @@
         </div>
     </div>
     <div class="container hidden">
-        <button type="button" class="theme-toggle-btn" id="themeToggleBtn" aria-label="Toggle light/dark theme">🌙</button>
         <button type="button" class="menu-btn" id="menuBtn" aria-label="Settings menu">⋮</button>
         <div class="menu-dropdown hidden" id="menuDropdown">
             <button type="button" id="menuTokenBtn">🔑 Manage OAuth Token</button>
@@ -551,27 +532,6 @@
             document.getElementById('stockStatValue').textContent = count || '—';
         }
         updateTotalStockDisplay();
-
-        // Manual light/dark toggle, overriding prefers-color-scheme. The actual
-        // switch (data-theme attribute + CSS variables) is already handled by
-        // the anti-flash script in <head> on load - this just keeps the button
-        // in sync and lets the user change it.
-        function currentEffectiveTheme() {
-            const saved = document.documentElement.getAttribute('data-theme');
-            if (saved === 'light' || saved === 'dark') return saved;
-            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        }
-        function updateThemeToggleIcon() {
-            // Icon shown is what you'd switch TO, not what you're currently on.
-            document.getElementById('themeToggleBtn').textContent = currentEffectiveTheme() === 'dark' ? '☀️' : '🌙';
-        }
-        updateThemeToggleIcon();
-        document.getElementById('themeToggleBtn').addEventListener('click', () => {
-            const next = currentEffectiveTheme() === 'dark' ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-theme', next);
-            localStorage.setItem('nglh_theme', next);
-            updateThemeToggleIcon();
-        });
 
         // Local-only history of past syncs - purely a convenience so you can glance
         // back at recent runs without digging through emails. Not synced anywhere.
@@ -919,9 +879,9 @@
                 row.innerHTML = `
                     <td><input type="checkbox" class="row-include-checkbox" id="include-${itemId}" checked></td>
                     <td><div class="thumb-wrap"><img class="thumb shimmer" id="thumb-${itemId}" alt=""><span>${info.name}</span></div></td>
-                    <td>${info.quantity}</td>
-                    <td id="ebayqty-${itemId}" class="shimmer">Checking…</td>
-                    <td id="change-${itemId}">—</td>
+                    <td class="numeric-cell">${info.quantity}</td>
+                    <td id="ebayqty-${itemId}" class="numeric-cell shimmer">Checking…</td>
+                    <td id="change-${itemId}" class="numeric-cell">—</td>
                     <td><span class="row-status pending" id="status-${itemId}">Pending</span></td>
                 `;
                 tbody.appendChild(row);
