@@ -34,7 +34,13 @@ const itemIdToGameName = {
   '128013967400': 'Zelda Breath of the wild - Cartridge',
   '128010607888': 'Zelda Breath of the wild - Sealed',
   '128017580568': 'Zelda Tears of the kingdom',
-  '128031128860': 'Mario and Sonic Olympic Games'
+  '128031128860': 'Mario and Sonic Olympic Games',
+  '128056194086': 'Cricket 24 - Sealed',
+  '128056173474': 'Until Dawn - Sealed',
+  '128056169801': 'Pokemon lets go Eevee',
+  '128056166954': 'Kirby and the forgotten land',
+  '128056159031': 'Mario bowsers fury',
+  '128056144663': 'Splatoon 3'
 };
 
 function ebayApiCall(xmlRequest, callName, authToken, appId, devId, certId, hostname) {
