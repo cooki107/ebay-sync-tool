@@ -8,6 +8,8 @@
 //
 // Usage: /.netlify/functions/send-report-now?key=<ADMIN_REPORT_KEY>&type=daily
 // type is one of daily (default), weekly, monthly.
+// ADMIN_REPORT_KEY is set directly in Netlify's dashboard (Site configuration
+// -> Environment variables), not via this repo.
 
 const { sendDailyReportEmail, sendWeeklyReportEmail, sendMonthlyReportEmail } = require('./report-shared');
 
