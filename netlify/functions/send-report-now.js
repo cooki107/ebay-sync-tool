@@ -7,7 +7,10 @@
 // 8am-UK gate those use.
 //
 // Usage: /.netlify/functions/send-report-now?key=<ADMIN_REPORT_KEY>&type=daily
-// type is one of daily (default), weekly, monthly.
+// type is one of daily (default), weekly, monthly. Optional from/to (ISO
+// 8601, daily only) override the normal "last 24 hours" window - useful when
+// recovering a missed run late, so the default now-24h-to-now range doesn't
+// leave a gap covering whatever sold before the delay.
 // ADMIN_REPORT_KEY is set directly in Netlify's dashboard (Site configuration
 // -> Environment variables), not via this repo.
 
@@ -24,7 +27,7 @@ const handler = async function(event, context) {
   try {
     if (params.type === 'weekly') return await sendWeeklyReportEmail();
     if (params.type === 'monthly') return await sendMonthlyReportEmail();
-    return await sendDailyReportEmail();
+    return await sendDailyReportEmail(params.from, params.to);
   } catch (error) {
     console.error('Error sending manual report:', error);
     return { statusCode: 500, body: error.message };
