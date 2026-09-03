@@ -17,7 +17,11 @@ function formatRange(start, end) {
 
 const handler = async function(event, context) {
   try {
-    if (!isUkMorningRunTime(new Date())) {
+    // Lets a missed scheduled run (e.g. Netlify's cron not firing) be sent
+    // manually via the "Run now" button by hitting the URL directly with
+    // ?force=true, bypassing the 8am-only gate below.
+    const forceRun = event.queryStringParameters && event.queryStringParameters.force === 'true';
+    if (!forceRun && !isUkMorningRunTime(new Date())) {
       return { statusCode: 200, body: 'Skipped - not 8am UK local time on this invocation' };
     }
 
