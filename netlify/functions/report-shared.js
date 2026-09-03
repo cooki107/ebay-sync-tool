@@ -614,7 +614,12 @@ function isUkMorningRunTime(now, targetHourUk = 8) {
 // non-scheduled function that calls these same functions directly, guarded
 // by a shared secret instead of the 8am-UK gate.
 
-async function sendDailyReportEmail() {
+// startOverride/endOverride (ISO 8601 strings) let a manual recovery send
+// (see send-report-now.js) cover an exact window instead of "the last 24
+// hours from right now" - useful when the normal window would leave a gap,
+// e.g. because a missed cron run was recovered late and the default
+// now-24h-to-now range would skip whatever sold before that delay.
+async function sendDailyReportEmail(startOverride, endOverride) {
   const authToken = process.env.EBAY_PRODUCTION_TOKEN || '';
   const appId = process.env.EBAY_PROD_APP_ID || '';
   const devId = process.env.EBAY_PROD_DEV_ID || '';
@@ -627,8 +632,8 @@ async function sendDailyReportEmail() {
   const isMonday = now.getUTCDay() === 1; // Sunday=0, Monday=1 ... in UTC
   const daysToLookBack = isMonday ? 3 : 1;
   const yesterday = new Date(now.getTime() - daysToLookBack * 24 * 60 * 60 * 1000);
-  const startTime = yesterday.toISOString();
-  const endTime = now.toISOString();
+  const startTime = startOverride || yesterday.toISOString();
+  const endTime = endOverride || now.toISOString();
 
   const salesResult = await getSalesForRange(startTime, endTime, authToken, appId, devId, certId, hostname);
   const costs = await getCostData();
