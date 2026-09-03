@@ -605,6 +605,180 @@ function isUkMorningRunTime(now, targetHourUk = 8) {
   return ukHour === targetHourUk;
 }
 
+// The three functions below hold the actual report-building/sending logic
+// used by send-daily-report.js, send-weekly-report.js and
+// send-monthly-report.js. Netlify blocks direct public invocation of a
+// schedule()-wrapped function's URL (returns a platform-level 403 before the
+// function code even runs), so a missed cron run can't be recovered just by
+// hitting those endpoints manually - send-report-now.js is a plain,
+// non-scheduled function that calls these same functions directly, guarded
+// by a shared secret instead of the 8am-UK gate.
+
+async function sendDailyReportEmail() {
+  const authToken = process.env.EBAY_PRODUCTION_TOKEN || '';
+  const appId = process.env.EBAY_PROD_APP_ID || '';
+  const devId = process.env.EBAY_PROD_DEV_ID || '';
+  const certId = process.env.EBAY_PROD_CERT_ID || '';
+  const resendApiKey = process.env.RESEND_API_KEY || '';
+  const toEmail = process.env.REPORT_EMAIL || 'cooki107@gmail.com';
+
+  const hostname = 'api.ebay.com';
+  const now = new Date();
+  const isMonday = now.getUTCDay() === 1; // Sunday=0, Monday=1 ... in UTC
+  const daysToLookBack = isMonday ? 3 : 1;
+  const yesterday = new Date(now.getTime() - daysToLookBack * 24 * 60 * 60 * 1000);
+  const startTime = yesterday.toISOString();
+  const endTime = now.toISOString();
+
+  const salesResult = await getSalesForRange(startTime, endTime, authToken, appId, devId, certId, hostname);
+  const costs = await getCostData();
+  const sales = salesResult.parsed && salesResult.parsed.length > 0 ? salesResult.parsed : [];
+  const traffic = await getTraffic(sales.map(s => s.itemId), startTime, endTime);
+
+  const isWeekend = isMonday;
+  const html = buildEmailHtml(sales, traffic, costs, {
+    reportTitle: isWeekend ? 'Weekend Report' : 'Daily Report',
+    footerCadence: isWeekend
+      ? 'Automated every Monday at 8:00 AM UK time, covering Friday-Sunday'
+      : 'Automated daily at 8:00 AM UK time',
+    noSalesText: isWeekend ? 'No sales recorded this weekend.' : 'No sales recorded yesterday.',
+    noSalesPreheader: isWeekend ? 'No sales this weekend - nothing to report' : 'No sales yesterday - nothing to report today',
+    preheaderPeriod: isWeekend ? 'this weekend' : 'yesterday',
+    periodStart: startTime,
+    periodEnd: endTime
+  });
+
+  if (!resendApiKey) {
+    console.log('RESEND_API_KEY not set yet - email not sent. HTML generated successfully.');
+    return { statusCode: 200, body: 'Report generated but not sent (no API key configured yet)' };
+  }
+
+  const totalRevenue = sales.reduce((sum, s) => sum + (s.quantity * s.price), 0);
+  const dateStr = new Date().toLocaleDateString('en-GB');
+  const subjectLabel = isWeekend ? 'Weekend Sales Report' : 'Sales Report';
+  const subject = sales.length > 0
+    ? `eBay ${subjectLabel} - ${dateStr} (£${totalRevenue.toFixed(2)})`
+    : `eBay ${subjectLabel} - ${dateStr}`;
+
+  const result = await sendViaResend(html, resendApiKey, toEmail, subject);
+  return { statusCode: 200, body: JSON.stringify(result) };
+}
+
+function formatWeeklyRange(start, end) {
+  const opts = { day: 'numeric', month: 'short' };
+  return `${start.toLocaleDateString('en-GB', opts)} - ${end.toLocaleDateString('en-GB', opts)}`;
+}
+
+async function sendWeeklyReportEmail() {
+  const authToken = process.env.EBAY_PRODUCTION_TOKEN || '';
+  const appId = process.env.EBAY_PROD_APP_ID || '';
+  const devId = process.env.EBAY_PROD_DEV_ID || '';
+  const certId = process.env.EBAY_PROD_CERT_ID || '';
+  const resendApiKey = process.env.RESEND_API_KEY || '';
+  const toEmail = process.env.REPORT_EMAIL || 'cooki107@gmail.com';
+
+  const hostname = 'api.ebay.com';
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const rangeLabel = formatWeeklyRange(weekAgo, now);
+
+  const salesResult = await getSalesForRange(weekAgo.toISOString(), now.toISOString(), authToken, appId, devId, certId, hostname);
+  const priorSalesResult = await getSalesForRange(twoWeeksAgo.toISOString(), weekAgo.toISOString(), authToken, appId, devId, certId, hostname);
+  const costs = await getCostData();
+  const sales = salesResult.parsed && salesResult.parsed.length > 0 ? salesResult.parsed : [];
+  const traffic = await getTraffic(sales.map(s => s.itemId), weekAgo.toISOString(), now.toISOString());
+  const priorSales = priorSalesResult.parsed || [];
+  const priorRevenue = priorSales.reduce((sum, s) => sum + (s.quantity * s.price), 0);
+  const priorItems = priorSales.reduce((sum, s) => sum + s.quantity, 0);
+
+  const html = buildEmailHtml(sales, traffic, costs, {
+    reportTitle: 'Weekly Report',
+    footerCadence: 'Automated weekly every Monday at 8:00 AM UK time',
+    noSalesText: 'No sales recorded this week.',
+    noSalesPreheader: 'No sales this week - nothing to report',
+    preheaderPeriod: 'this week',
+    dateRangeLabel: rangeLabel,
+    comparison: { label: 'last week', priorRevenue, priorItems },
+    periodStart: weekAgo.toISOString(),
+    periodEnd: now.toISOString()
+  });
+
+  if (!resendApiKey) {
+    console.log('RESEND_API_KEY not set yet - email not sent. HTML generated successfully.');
+    return { statusCode: 200, body: 'Report generated but not sent (no API key configured yet)' };
+  }
+
+  const totalRevenue = sales.reduce((sum, s) => sum + (s.quantity * s.price), 0);
+  const subject = sales.length > 0
+    ? `eBay Weekly Sales Report - ${rangeLabel} (£${totalRevenue.toFixed(2)})`
+    : `eBay Weekly Sales Report - ${rangeLabel}`;
+
+  const result = await sendViaResend(html, resendApiKey, toEmail, subject);
+  return { statusCode: 200, body: JSON.stringify(result) };
+}
+
+function getMonthRange(now, monthsAgo) {
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - monthsAgo, 1, 0, 0, 0));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - monthsAgo + 1, 1, 0, 0, 0));
+  return { start, end };
+}
+
+function formatMonthLabel(start) {
+  return start.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+
+async function sendMonthlyReportEmail() {
+  const authToken = process.env.EBAY_PRODUCTION_TOKEN || '';
+  const appId = process.env.EBAY_PROD_APP_ID || '';
+  const devId = process.env.EBAY_PROD_DEV_ID || '';
+  const certId = process.env.EBAY_PROD_CERT_ID || '';
+  const resendApiKey = process.env.RESEND_API_KEY || '';
+  const toEmail = process.env.REPORT_EMAIL || 'cooki107@gmail.com';
+
+  const hostname = 'api.ebay.com';
+  const now = new Date();
+  const { start, end } = getMonthRange(now, 1);
+  const { start: priorStart, end: priorEnd } = getMonthRange(now, 2);
+  const monthLabel = formatMonthLabel(start);
+  const priorMonthShortLabel = priorStart.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
+
+  const salesResult = await getSalesForRange(start.toISOString(), end.toISOString(), authToken, appId, devId, certId, hostname);
+  const priorSalesResult = await getSalesForRange(priorStart.toISOString(), priorEnd.toISOString(), authToken, appId, devId, certId, hostname);
+  const costs = await getCostData();
+  const sales = salesResult.parsed && salesResult.parsed.length > 0 ? salesResult.parsed : [];
+  const trafficEnd = new Date(end.getTime() - 1);
+  const traffic = await getTraffic(sales.map(s => s.itemId), start.toISOString(), trafficEnd.toISOString());
+  const priorSales = priorSalesResult.parsed || [];
+  const priorRevenue = priorSales.reduce((sum, s) => sum + (s.quantity * s.price), 0);
+  const priorItems = priorSales.reduce((sum, s) => sum + s.quantity, 0);
+
+  const html = buildEmailHtml(sales, traffic, costs, {
+    reportTitle: 'Monthly Report',
+    footerCadence: 'Automated monthly on the 1st at 8:00 AM UK time',
+    noSalesText: 'No sales recorded last month.',
+    noSalesPreheader: 'No sales last month - nothing to report',
+    preheaderPeriod: 'last month',
+    dateRangeLabel: monthLabel,
+    comparison: { label: priorMonthShortLabel, priorRevenue, priorItems },
+    periodStart: start.toISOString(),
+    periodEnd: end.toISOString()
+  });
+
+  if (!resendApiKey) {
+    console.log('RESEND_API_KEY not set yet - email not sent. HTML generated successfully.');
+    return { statusCode: 200, body: 'Report generated but not sent (no API key configured yet)' };
+  }
+
+  const totalRevenue = sales.reduce((sum, s) => sum + (s.quantity * s.price), 0);
+  const subject = sales.length > 0
+    ? `eBay Monthly Sales Report - ${monthLabel} (£${totalRevenue.toFixed(2)})`
+    : `eBay Monthly Sales Report - ${monthLabel}`;
+
+  const result = await sendViaResend(html, resendApiKey, toEmail, subject);
+  return { statusCode: 200, body: JSON.stringify(result) };
+}
+
 module.exports = {
   itemIdToGameName,
   ebayApiCall,
@@ -618,5 +792,8 @@ module.exports = {
   mergeCostSnapshot,
   buildEmailHtml,
   sendViaResend,
-  isUkMorningRunTime
+  isUkMorningRunTime,
+  sendDailyReportEmail,
+  sendWeeklyReportEmail,
+  sendMonthlyReportEmail
 };
