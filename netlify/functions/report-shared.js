@@ -25,7 +25,7 @@ const itemIdToGameName = {
   '128017583742': 'Super Mario Wonder - Cartridge',
   '127916232402': 'Super Mario Odyssey',
   '128032561397': 'Super Mario Odyssey - Cartridge',
-  '127992258497': 'Super Mario Jamboree',
+  '127992258497': 'Super Mario Party Jamboree',
   '127923383109': 'Super Smash Bros',
   '127916387430': 'Super Smash Bros - Cartridge',
   '127967561009': 'Zelda Links Awakening',
