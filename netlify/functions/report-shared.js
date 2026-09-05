@@ -40,7 +40,12 @@ const itemIdToGameName = {
   '128056169801': 'Pokemon lets go Eevee',
   '128056166954': 'Kirby and the forgotten land',
   '128056159031': 'Mario bowsers fury',
-  '128056144663': 'Splatoon 3'
+  '128056144663': 'Splatoon 3',
+  // Queued by Nathan - not yet listed on eBay, so no real item ID yet.
+  // Replace PENDING_* with the real eBay item ID once listed, before deploying.
+  'PENDING_MARIO_BOWSERS_FURY_CARTRIDGE': 'Mario Bowsers Fury - Cartridge',
+  'PENDING_SUPER_MARIO_GALAXY_CARTRIDGE': 'Super Mario Galaxy - Cartridge',
+  'PENDING_MINECRAFT_STORY_MODE_COMPLETE_ADVENTURE': 'Minecraft Story Mode The Complete Adventure'
 };
 
 function ebayApiCall(xmlRequest, callName, authToken, appId, devId, certId, hostname) {
