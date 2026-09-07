@@ -25,7 +25,7 @@ const itemIdToGameName = {
   '128017583742': 'Super Mario Wonder - Cartridge',
   '127916232402': 'Super Mario Odyssey',
   '128032561397': 'Super Mario Odyssey - Cartridge',
-  '127992258497': 'Super Mario Jamboree',
+  '127992258497': 'Super Mario Party Jamboree',
   '127923383109': 'Super Smash Bros',
   '127916387430': 'Super Smash Bros - Cartridge',
   '127967561009': 'Zelda Links Awakening',
@@ -40,7 +40,10 @@ const itemIdToGameName = {
   '128056169801': 'Pokemon lets go Eevee',
   '128056166954': 'Kirby and the forgotten land',
   '128056159031': 'Mario bowsers fury',
-  '128056144663': 'Splatoon 3'
+  '128056144663': 'Splatoon 3',
+  '128067002104': 'Mario Bowsers Fury - Cartridge',
+  '128067002896': 'Super Mario Galaxy - Cartridge',
+  '128067004227': 'Minecraft Story Mode The Complete Adventure'
 };
 
 function ebayApiCall(xmlRequest, callName, authToken, appId, devId, certId, hostname) {
