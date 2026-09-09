@@ -132,7 +132,11 @@
         .stat-tile .stat-value {
             font-family: var(--font-mono); font-variant-numeric: tabular-nums;
             font-size: 26px; font-weight: 600; margin-top: 4px; color: var(--text);
+            white-space: nowrap;
         }
+        .stat-tile .stat-value.size-md { font-size: 20px; }
+        .stat-tile .stat-value.size-sm { font-size: 17px; }
+        .stat-tile .stat-value.size-xs { font-size: 14px; }
         .card {
             background: var(--surface); border-radius: 16px; padding: 18px;
             margin-bottom: 14px; box-shadow: 0 4px 20px var(--shadow); border: 1px solid var(--border);
@@ -723,12 +727,24 @@
         // count above at file-parse time. Animates a brief count-up on a fresh
         // upload; loads instantly (no animation) on page open since there's no
         // "before" value worth transitioning from.
+        // Stock value has no natural upper bound (unlike the stock count or a
+        // date), so a long total ("£12,345.67") needs a smaller font than a
+        // short one ("£99.00") to stay inside the tile - same fixed 26px as
+        // the other stat tiles would overflow once it grows past ~6 digits.
+        function setStatValueText(el, text) {
+            el.textContent = text;
+            const len = text.length;
+            el.classList.remove('size-md', 'size-sm', 'size-xs');
+            if (len > 10) el.classList.add('size-xs');
+            else if (len > 8) el.classList.add('size-sm');
+            else if (len > 6) el.classList.add('size-md');
+        }
         let stockValueAnimFrame = null;
         function updateStockValueDisplay(animate) {
             const el = document.getElementById('stockValueStatValue');
             const tile = document.getElementById('stockValueTile');
             const raw = localStorage.getItem('nglh_stock_value');
-            if (raw === null) { el.textContent = '—'; tile.title = ''; return; }
+            if (raw === null) { setStatValueText(el, '—'); tile.title = ''; return; }
             const target = parseFloat(raw);
             const missing = parseInt(localStorage.getItem('nglh_stock_value_missing') || '0', 10);
             tile.title = missing > 0
@@ -736,7 +752,7 @@
                 : 'Total cost basis of currently listed stock.';
 
             if (!animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                el.textContent = `£${target.toFixed(2)}`;
+                setStatValueText(el, `£${target.toFixed(2)}`);
                 return;
             }
             const start = parseFloat(el.textContent.replace(/[^0-9.]/g, '')) || 0;
@@ -746,7 +762,7 @@
             function tick(now) {
                 const progress = Math.min((now - startTime) / duration, 1);
                 const eased = 1 - Math.pow(1 - progress, 3);
-                el.textContent = `£${(start + (target - start) * eased).toFixed(2)}`;
+                setStatValueText(el, `£${(start + (target - start) * eased).toFixed(2)}`);
                 if (progress < 1) stockValueAnimFrame = requestAnimationFrame(tick);
             }
             stockValueAnimFrame = requestAnimationFrame(tick);
