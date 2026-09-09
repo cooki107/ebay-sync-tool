@@ -731,9 +731,13 @@
         // date), so a long total ("£12,345.67") needs a smaller font than a
         // short one ("£99.00") to stay inside the tile - same fixed 26px as
         // the other stat tiles would overflow once it grows past ~6 digits.
-        function setStatValueText(el, text) {
-            el.textContent = text;
-            const len = text.length;
+        // The size-* class is set once from the FINAL text, never touched again
+        // during a count-up - toggling classList on every animation frame (up to
+        // ~40 times over the animation) forced a style recalc on this element on
+        // every frame, which under the tile's backdrop-filter blur corrupted the
+        // text into a doubled/ghosted render on some real devices.
+        function setStatValueSize(el, finalText) {
+            const len = finalText.length;
             el.classList.remove('size-md', 'size-sm', 'size-xs');
             if (len > 10) el.classList.add('size-xs');
             else if (len > 8) el.classList.add('size-sm');
@@ -744,15 +748,17 @@
             const el = document.getElementById('stockValueStatValue');
             const tile = document.getElementById('stockValueTile');
             const raw = localStorage.getItem('nglh_stock_value');
-            if (raw === null) { setStatValueText(el, '—'); tile.title = ''; return; }
+            if (raw === null) { setStatValueSize(el, '—'); el.textContent = '—'; tile.title = ''; return; }
             const target = parseFloat(raw);
             const missing = parseInt(localStorage.getItem('nglh_stock_value_missing') || '0', 10);
             tile.title = missing > 0
                 ? `Estimate only - no purchase price on file for ${missing} listed item${missing === 1 ? '' : 's'}.`
                 : 'Total cost basis of currently listed stock.';
 
+            const finalText = `£${target.toFixed(2)}`;
+            setStatValueSize(el, finalText);
             if (!animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                setStatValueText(el, `£${target.toFixed(2)}`);
+                el.textContent = finalText;
                 return;
             }
             const start = parseFloat(el.textContent.replace(/[^0-9.]/g, '')) || 0;
@@ -762,8 +768,9 @@
             function tick(now) {
                 const progress = Math.min((now - startTime) / duration, 1);
                 const eased = 1 - Math.pow(1 - progress, 3);
-                setStatValueText(el, `£${(start + (target - start) * eased).toFixed(2)}`);
+                el.textContent = `£${(start + (target - start) * eased).toFixed(2)}`;
                 if (progress < 1) stockValueAnimFrame = requestAnimationFrame(tick);
+                else el.textContent = finalText;
             }
             stockValueAnimFrame = requestAnimationFrame(tick);
         }
