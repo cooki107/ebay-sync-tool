@@ -13,10 +13,44 @@
 // leave a gap covering whatever sold before the delay.
 // ADMIN_REPORT_KEY is set directly in Netlify's dashboard (Site configuration
 // -> Environment variables), not via this repo.
+//
+// Also accepts POST with JSON body { authToken, type, from, to } - the
+// in-app "Resend today's report" button in Settings uses this path, gated on
+// authToken matching the server's own production token (the same token the
+// scheduled reports already run as) since there's no separate admin key
+// available in the browser. The GET/key path above is unchanged, for the
+// manual-recovery-via-URL case.
 
 const { sendDailyReportEmail, sendWeeklyReportEmail, sendMonthlyReportEmail } = require('./report-shared');
 
+async function sendByType(type, from, to) {
+  if (type === 'weekly') return await sendWeeklyReportEmail();
+  if (type === 'monthly') return await sendMonthlyReportEmail();
+  return await sendDailyReportEmail(from, to);
+}
+
 const handler = async function(event, context) {
+  if (event.httpMethod === 'POST') {
+    let body;
+    try {
+      body = JSON.parse(event.body || '{}');
+    } catch (err) {
+      return { statusCode: 400, body: 'Invalid JSON body' };
+    }
+
+    const expectedToken = process.env.EBAY_PRODUCTION_TOKEN;
+    if (!expectedToken || body.authToken !== expectedToken) {
+      return { statusCode: 403, body: 'Forbidden' };
+    }
+
+    try {
+      return await sendByType(body.type, body.from, body.to);
+    } catch (error) {
+      console.error('Error sending manual report:', error);
+      return { statusCode: 500, body: error.message };
+    }
+  }
+
   const params = event.queryStringParameters || {};
   const expectedKey = process.env.ADMIN_REPORT_KEY;
 
@@ -25,9 +59,7 @@ const handler = async function(event, context) {
   }
 
   try {
-    if (params.type === 'weekly') return await sendWeeklyReportEmail();
-    if (params.type === 'monthly') return await sendMonthlyReportEmail();
-    return await sendDailyReportEmail(params.from, params.to);
+    return await sendByType(params.type, params.from, params.to);
   } catch (error) {
     console.error('Error sending manual report:', error);
     return { statusCode: 500, body: error.message };
