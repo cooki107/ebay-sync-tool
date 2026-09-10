@@ -27,6 +27,7 @@
             --text: #edf3f6; --text-secondary: #93a6b8; --text-muted: #6c8194;
             --shadow: rgba(0,0,0,0.35); --primary-glow: rgba(34,211,238,0.35);
             --pending-bg: rgba(251,191,36,0.16); --pending-text: #fbbf24;
+            --warning: #fbbf24; --warning-light: rgba(251,191,36,0.16);
             --aurora-1: rgba(20,184,166,0.34); --aurora-2: rgba(56,189,248,0.26);
             --font-display: 'Sora', -apple-system, sans-serif;
             --font-body: 'IBM Plex Sans', -apple-system, sans-serif;
@@ -87,7 +88,8 @@
             100% { transform: translateX(4%) rotate(-6deg); }
         }
         @media (prefers-reduced-motion: reduce) {
-            body::after, header .logo, .gate-logo { animation: none; }
+            body::after, header .logo, .gate-logo,
+            .flourish-particle, .toast { animation: none; }
         }
         body {
             font-family: var(--font-body);
@@ -115,9 +117,9 @@
         .logo:hover { transform: scale(1.04) rotate(-1deg); }
         .logo svg { width: 100%; height: 100%; display: block; }
         h1 { font-family: var(--font-display); font-size: 24px; font-weight: 700; }
-        .stat-bar { display: flex; gap: 10px; margin-top: 18px; }
+        .stat-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
         .stat-tile {
-            flex: 1; background: linear-gradient(160deg, rgba(255,255,255,0.075), rgba(255,255,255,0.03));
+            flex: 1; min-width: 96px; background: linear-gradient(160deg, rgba(255,255,255,0.075), rgba(255,255,255,0.03));
             border: 1px solid var(--border); border-radius: 18px; padding: 18px 12px; text-align: center;
             box-shadow: 0 4px 20px var(--shadow), 0 0 24px -8px var(--primary-glow);
             backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
@@ -130,7 +132,11 @@
         .stat-tile .stat-value {
             font-family: var(--font-mono); font-variant-numeric: tabular-nums;
             font-size: 26px; font-weight: 600; margin-top: 4px; color: var(--text);
+            white-space: nowrap;
         }
+        .stat-tile .stat-value.size-md { font-size: 20px; }
+        .stat-tile .stat-value.size-sm { font-size: 17px; }
+        .stat-tile .stat-value.size-xs { font-size: 14px; }
         .card {
             background: var(--surface); border-radius: 16px; padding: 18px;
             margin-bottom: 14px; box-shadow: 0 4px 20px var(--shadow); border: 1px solid var(--border);
@@ -213,6 +219,14 @@
         @keyframes flashSuccess { 0% { background: var(--success-light); } 100% { background: transparent; } }
         @keyframes flashFailed { 0% { background: var(--danger-light); } 100% { background: transparent; } }
         .numeric-cell { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--primary); }
+        /* At-a-glance stock pressure on the RV Qty column - 1 left is worth
+           flagging before you sync it down further, 3+ reads as healthy. */
+        .qty-cell.qty-low { color: var(--warning); font-weight: 700; }
+        .qty-cell.qty-mid { color: var(--text); }
+        .qty-cell.qty-healthy { color: var(--success); font-weight: 700; }
+        td.row-accent-qty-low { border-left: 3px solid var(--warning); }
+        td.row-accent-qty-mid { border-left: 3px solid transparent; }
+        td.row-accent-qty-healthy { border-left: 3px solid var(--success); }
         .change-pos { color: var(--success); font-weight: 600; }
         .change-neg { color: var(--danger); font-weight: 600; }
         .change-zero { color: var(--text-muted); }
@@ -329,8 +343,40 @@
             font-size: 13px; color: var(--text-secondary); line-height: 1.6;
             white-space: pre-wrap; word-break: break-word; margin-bottom: 20px;
         }
+        .modal-body.modal-body-html { white-space: normal; }
+        .modal-body table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .modal-body th { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--border); color: var(--text-secondary); font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; }
+        .modal-body td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
         .modal-actions { display: flex; gap: 10px; }
         .modal-actions button { margin: 0; }
+        /* Small particle burst behind the "all done" sync banner - celebratory,
+           not load-bearing, so it's skipped entirely under reduced motion
+           rather than degraded (see the prefers-reduced-motion block above). */
+        .flourish-container { position: fixed; left: 50%; bottom: 150px; width: 0; height: 0; z-index: 600; pointer-events: none; }
+        .flourish-particle {
+            position: absolute; top: 0; left: 0; width: 7px; height: 7px; border-radius: 50%;
+            box-shadow: 0 0 8px 1px currentColor;
+            animation: flourishBurst 0.9s cubic-bezier(0.2,0.8,0.3,1) both;
+        }
+        @keyframes flourishBurst {
+            0% { transform: translate(-50%,-50%) scale(0.4); opacity: 1; }
+            100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.9); opacity: 0; }
+        }
+        .toast-stack {
+            position: fixed; top: calc(16px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+            z-index: 10001; display: flex; flex-direction: column; gap: 8px; align-items: center;
+            width: calc(100% - 32px); max-width: 400px; pointer-events: none;
+        }
+        .toast {
+            background: #0d1626; border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px;
+            box-shadow: 0 8px 24px var(--shadow), 0 0 20px -6px var(--primary-glow);
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+            font-size: 13px; font-weight: 600; color: var(--text); text-align: center;
+            animation: toastIn 0.3s ease both, toastOut 0.3s ease 3.2s both;
+        }
+        .toast.toast-error { color: var(--danger); border-color: rgba(248,113,113,0.35); }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes toastOut { to { opacity: 0; transform: translateY(-10px); } }
     </style>
 </head>
 <body class="gate-active">
@@ -346,6 +392,9 @@
         <div class="menu-dropdown hidden" id="menuDropdown">
             <button type="button" id="menuTokenBtn">🔑 Manage OAuth Token</button>
             <button type="button" id="menuEnvBtn">🧪 Switch Environment</button>
+            <button type="button" id="menuSoundBtn">🔊 Sound: Off</button>
+            <button type="button" id="menuListingPerfBtn">📊 Listing Performance</button>
+            <button type="button" id="menuResendReportBtn">📧 Resend Today's Report</button>
             <button type="button" id="menuResetBtn">🗑️ Reset Profit Tracking Data</button>
         </div>
         <header>
@@ -361,6 +410,11 @@
                     <div class="stat-icon">🕐</div>
                     <div class="stat-label" style="color:var(--pending-text);">Last Synced</div>
                     <div class="stat-value" id="syncStatValue">—</div>
+                </div>
+                <div class="stat-tile" id="stockValueTile">
+                    <div class="stat-icon">💰</div>
+                    <div class="stat-label" style="color:var(--success);">Stock Value</div>
+                    <div class="stat-value" id="stockValueStatValue">—</div>
                 </div>
             </div>
             <a href="#" id="showHistoryLink" style="font-size:11px;color:var(--text-muted);display:none;margin-top:10px;">View recent syncs</a>
@@ -562,6 +616,80 @@
             });
         });
 
+        // Pulls 30 days of eBay traffic/sales for every mapped game (not just
+        // ones that sold), so listings getting views but few/no sales surface
+        // at the top - the report emails' own traffic table only covers items
+        // that actually sold, which misses exactly that case.
+        function renderListingPerformance(listings, periodDays) {
+            const modalBodyEl = document.getElementById('modalBody');
+            if (!listings || listings.length === 0) {
+                modalBodyEl.innerHTML = '<div class="hint">No listing data returned.</div>';
+                return;
+            }
+            const rows = listings.map(item => {
+                const ratio = item.views / Math.max(item.qtySold, 1);
+                let indicator;
+                if (item.qtySold === 0 && item.views > 0) indicator = '<span class="row-status failed">Weak</span>';
+                else if (ratio >= 20) indicator = '<span class="row-status pending">Watch</span>';
+                else indicator = '<span class="row-status done">Strong</span>';
+                return `<tr><td>${escapeHtml(item.title)}</td><td class="numeric-cell">${item.views}</td><td class="numeric-cell">${item.qtySold}</td><td>${indicator}</td></tr>`;
+            }).join('');
+            modalBodyEl.innerHTML = `
+                <div class="hint" style="margin-bottom:8px;">Last ${periodDays} days &middot; weakest converters first</div>
+                <div class="table-scroll"><table><thead><tr><th>Game</th><th>Views</th><th>Sold</th><th>Signal</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        }
+
+        async function loadListingPerformance() {
+            const token = localStorage.getItem('nglh_token_production');
+            if (!token) {
+                showInfoModal('Listing Performance', "Set a Production OAuth token in Settings first - Listing Performance needs it to pull sales and traffic data from eBay.");
+                return;
+            }
+            showModal({
+                title: '📊 Listing Performance',
+                bodyHtml: '<div class="hint">Loading…</div>',
+                actions: [{ label: 'Close', secondary: true }]
+            });
+            try {
+                const response = await fetch('/api/listing-performance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ authToken: token, titleMapping })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.error || String(response.status));
+                renderListingPerformance(result.listings, result.periodDays);
+            } catch (err) {
+                document.getElementById('modalBody').innerHTML = `<div class="hint" style="color:var(--danger);">Couldn't load listing performance: ${escapeHtml(err.message)}</div>`;
+            }
+        }
+
+        document.getElementById('menuListingPerfBtn').addEventListener('click', () => {
+            menuDropdown.classList.add('hidden');
+            loadListingPerformance();
+        });
+
+        document.getElementById('menuResendReportBtn').addEventListener('click', async () => {
+            menuDropdown.classList.add('hidden');
+            const token = localStorage.getItem('nglh_token_production');
+            if (!token) {
+                showInfoModal('Resend report', "Set a Production OAuth token in Settings first - resending needs it to pull today's sales from eBay.");
+                return;
+            }
+            showToast('📧 Sending report…');
+            try {
+                const response = await fetch('/api/send-report-now', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ authToken: token, type: 'daily' })
+                });
+                if (!response.ok) throw new Error(`Server returned ${response.status}`);
+                showToast('✅ Report resent - check your inbox shortly.');
+            } catch (err) {
+                showToast(`Resend failed: ${err.message}`, true);
+            }
+        });
+
         // Default straight to Production - this is the everyday mode now that
         // it's confirmed working. Sandbox is tucked behind the settings menu.
         setEnvironment('production');
@@ -594,6 +722,167 @@
             document.getElementById('stockStatValue').textContent = count || '—';
         }
         updateTotalStockDisplay();
+
+        // Cost-basis value of currently-listed stock, set alongside the stock
+        // count above at file-parse time. Animates a brief count-up on a fresh
+        // upload; loads instantly (no animation) on page open since there's no
+        // "before" value worth transitioning from.
+        // Stock value has no natural upper bound (unlike the stock count or a
+        // date), so a long total ("£12,345.67") needs a smaller font than a
+        // short one ("£99.00") to stay inside the tile - same fixed 26px as
+        // the other stat tiles would overflow once it grows past ~6 digits.
+        // The size-* class is set once from the FINAL text, never touched again
+        // during a count-up - toggling classList on every animation frame (up to
+        // ~40 times over the animation) forced a style recalc on this element on
+        // every frame, which under the tile's backdrop-filter blur corrupted the
+        // text into a doubled/ghosted render on some real devices.
+        function setStatValueSize(el, finalText) {
+            const len = finalText.length;
+            el.classList.remove('size-md', 'size-sm', 'size-xs');
+            if (len > 10) el.classList.add('size-xs');
+            else if (len > 8) el.classList.add('size-sm');
+            else if (len > 6) el.classList.add('size-md');
+        }
+        let stockValueAnimFrame = null;
+        function updateStockValueDisplay(animate) {
+            const el = document.getElementById('stockValueStatValue');
+            const tile = document.getElementById('stockValueTile');
+            const raw = localStorage.getItem('nglh_stock_value');
+            if (raw === null) { setStatValueSize(el, '—'); el.textContent = '—'; tile.title = ''; return; }
+            const target = parseFloat(raw);
+            const missing = parseInt(localStorage.getItem('nglh_stock_value_missing') || '0', 10);
+            tile.title = missing > 0
+                ? `Estimate only - no purchase price on file for ${missing} listed item${missing === 1 ? '' : 's'}.`
+                : 'Total cost basis of currently listed stock.';
+
+            const finalText = `£${target.toFixed(2)}`;
+            setStatValueSize(el, finalText);
+            if (!animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                el.textContent = finalText;
+                return;
+            }
+            const start = parseFloat(el.textContent.replace(/[^0-9.]/g, '')) || 0;
+            const duration = 650;
+            const startTime = performance.now();
+            if (stockValueAnimFrame) cancelAnimationFrame(stockValueAnimFrame);
+            function tick(now) {
+                const progress = Math.min((now - startTime) / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                el.textContent = `£${(start + (target - start) * eased).toFixed(2)}`;
+                if (progress < 1) stockValueAnimFrame = requestAnimationFrame(tick);
+                else el.textContent = finalText;
+            }
+            stockValueAnimFrame = requestAnimationFrame(tick);
+        }
+        updateStockValueDisplay(false);
+
+        // Simple auto-dismissing toast, styled to match the rest of the tool -
+        // used for milestone celebrations and brief success/error feedback
+        // (e.g. the resend-report button) that doesn't warrant a full modal.
+        function showToast(message, isError) {
+            let stack = document.getElementById('toastStack');
+            if (!stack) {
+                stack = document.createElement('div');
+                stack.id = 'toastStack';
+                stack.className = 'toast-stack';
+                document.body.appendChild(stack);
+            }
+            const toast = document.createElement('div');
+            toast.className = `toast${isError ? ' toast-error' : ''}`;
+            toast.textContent = message;
+            stack.appendChild(toast);
+            setTimeout(() => toast.remove(), 3600);
+        }
+
+        // Small particle-burst flourish behind the "all done" sync banner,
+        // scaled to how many items were actually synced (capped so a huge
+        // batch doesn't look absurd). Skipped entirely under reduced motion
+        // rather than shown without animation, since a pile of static dots
+        // would just be visual noise with nothing to explain it.
+        function triggerSyncFlourish(count) {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            const particleCount = Math.min(6 + count * 2, 36);
+            const container = document.createElement('div');
+            container.className = 'flourish-container';
+            const colors = ['var(--primary)', 'var(--success)', 'var(--primary-dark)'];
+            for (let i = 0; i < particleCount; i++) {
+                const p = document.createElement('span');
+                p.className = 'flourish-particle';
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 50 + Math.random() * 110;
+                p.style.setProperty('--dx', `${Math.cos(angle) * distance}px`);
+                p.style.setProperty('--dy', `${Math.sin(angle) * distance}px`);
+                p.style.color = colors[i % colors.length];
+                p.style.background = colors[i % colors.length];
+                p.style.animationDelay = `${Math.random() * 0.15}s`;
+                container.appendChild(p);
+            }
+            document.body.appendChild(container);
+            setTimeout(() => container.remove(), 1200);
+        }
+
+        // ~100-200ms synth "confirm blip" via Web Audio, no external audio file.
+        // Off by default - only plays once the Settings toggle is switched on.
+        function playSyncSound() {
+            if (localStorage.getItem('nglh_sound_enabled') !== 'true') return;
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(660, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1108, ctx.currentTime + 0.14);
+                gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.2);
+                osc.onended = () => ctx.close();
+            } catch (e) { /* Web Audio unavailable - silently skip, it's a nice-to-have */ }
+        }
+
+        function updateSoundBtnLabel() {
+            const enabled = localStorage.getItem('nglh_sound_enabled') === 'true';
+            document.getElementById('menuSoundBtn').textContent = `🔊 Sound: ${enabled ? 'On' : 'Off'}`;
+        }
+        document.getElementById('menuSoundBtn').addEventListener('click', () => {
+            const enabled = localStorage.getItem('nglh_sound_enabled') === 'true';
+            localStorage.setItem('nglh_sound_enabled', String(!enabled));
+            updateSoundBtnLabel();
+            menuDropdown.classList.add('hidden');
+        });
+        updateSoundBtnLabel();
+
+        // Lifetime cumulative items synced (across every sync ever run on this
+        // device) and the biggest single-batch personal best, each celebrated
+        // with a one-time toast the first time they're reached.
+        const MILESTONE_THRESHOLDS = [100, 250, 500, 1000, 2500, 5000, 10000];
+        function updateMilestones(successCount) {
+            if (successCount <= 0) return;
+
+            const before = parseInt(localStorage.getItem('nglh_lifetime_synced') || '0', 10);
+            const after = before + successCount;
+            localStorage.setItem('nglh_lifetime_synced', String(after));
+
+            let shown = [];
+            try { shown = JSON.parse(localStorage.getItem('nglh_milestones_shown') || '[]'); } catch (e) { shown = []; }
+            const crossed = MILESTONE_THRESHOLDS.filter(t => before < t && after >= t && !shown.includes(t));
+            let toastDelay = 0;
+            if (crossed.length > 0) {
+                const milestone = crossed[crossed.length - 1]; // only the highest one crossed this run
+                localStorage.setItem('nglh_milestones_shown', JSON.stringify([...shown, milestone]));
+                showToast(`💯 ${milestone.toLocaleString()}th item synced!`);
+                toastDelay = 3800; // stagger so a milestone + a personal-best toast don't overlap
+            }
+
+            const best = parseInt(localStorage.getItem('nglh_best_sync_batch') || '0', 10);
+            if (successCount > best) {
+                localStorage.setItem('nglh_best_sync_batch', String(successCount));
+                setTimeout(() => showToast(`🏆 New personal best: ${successCount} items in one sync!`), toastDelay);
+            }
+        }
 
         // Local-only history of past syncs - purely a convenience so you can glance
         // back at recent runs without digging through emails. Not synced anywhere.
@@ -639,11 +928,24 @@
             e.target.textContent = isHidden ? 'Hide recent syncs' : 'View recent syncs';
         });
 
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
         // Small in-page modal used in place of native alert()/confirm() popups,
         // which look jarring and can't be styled to match the rest of the tool.
-        function showModal({ title, body, actions }) {
+        // bodyHtml (instead of body) renders markup rather than plain text -
+        // used by the Listing Performance panel, which needs an actual table.
+        function showModal({ title, body, bodyHtml, actions }) {
             document.getElementById('modalTitle').textContent = title;
-            document.getElementById('modalBody').textContent = body;
+            const modalBodyEl = document.getElementById('modalBody');
+            if (bodyHtml !== undefined) {
+                modalBodyEl.innerHTML = bodyHtml;
+                modalBodyEl.classList.add('modal-body-html');
+            } else {
+                modalBodyEl.textContent = body;
+                modalBodyEl.classList.remove('modal-body-html');
+            }
             const actionsEl = document.getElementById('modalActions');
             actionsEl.innerHTML = '';
             actions.forEach(a => {
@@ -871,6 +1173,21 @@
                     localStorage.setItem('nglh_total_stock_count', String(listedItems.length));
                     updateTotalStockDisplay();
 
+                    // Cost-basis value of everything currently listed - sums what's
+                    // available and notes (via the tile's tooltip) when some listed
+                    // rows had no usable purchase_price, same caveat language as the
+                    // report emails' "no purchase price on file" note.
+                    let stockValueSum = 0;
+                    let stockValueMissing = 0;
+                    listedItems.forEach(row => {
+                        const price = parseFloat(row.purchase_price);
+                        if (!isNaN(price)) stockValueSum += price;
+                        else stockValueMissing++;
+                    });
+                    localStorage.setItem('nglh_stock_value', String(stockValueSum));
+                    localStorage.setItem('nglh_stock_value_missing', String(stockValueMissing));
+                    updateStockValueDisplay(true);
+
                     // Average purchase_price per game across the whole file (not just
                     // listed rows) and save it so the daily/weekly/monthly emails can
                     // work out profit - those run on a schedule with no browser involved,
@@ -970,10 +1287,14 @@
                 const row = document.createElement('tr');
                 row.id = `row-${itemId}`;
                 row.style.animationDelay = `${Math.min(index * 0.03, 0.5)}s`;
+                // Quick stock-pressure signal on the RV Qty column: 1 left is
+                // worth a second glance, 2 is neutral, 3+ reads as healthy.
+                const qtyTier = info.quantity === 1 ? 'qty-low' : info.quantity === 2 ? 'qty-mid' : 'qty-healthy';
+                const qtyTitle = info.quantity === 1 ? ' title="Only 1 left"' : '';
                 row.innerHTML = `
-                    <td><input type="checkbox" class="row-include-checkbox" id="include-${itemId}" checked></td>
+                    <td class="row-accent-${qtyTier}"><input type="checkbox" class="row-include-checkbox" id="include-${itemId}" checked></td>
                     <td><div class="thumb-wrap"><img class="thumb shimmer" id="thumb-${itemId}" alt=""><span>${info.name}</span></div></td>
-                    <td class="numeric-cell">${info.quantity}</td>
+                    <td class="numeric-cell qty-cell ${qtyTier}"${qtyTitle}>${info.quantity}</td>
                     <td id="ebayqty-${itemId}" class="numeric-cell shimmer">Checking…</td>
                     <td id="change-${itemId}" class="numeric-cell">—</td>
                     <td><span class="row-status pending" id="status-${itemId}">Pending</span></td>
@@ -1259,6 +1580,8 @@
                 failed: failCount
             });
 
+            updateMilestones(successCount);
+
             syncStatusEl.className = `status show ${failCount === 0 ? 'success' : 'error'}`;
             if (failCount === 0) {
                 syncStatusEl.innerHTML = `
@@ -1269,6 +1592,8 @@
                             <span>${successCount} synced${skippedCount ? `, ${skippedCount} already up to date` : ''}</span>
                         </div>
                     </div>`;
+                playSyncSound();
+                if (successCount > 0) triggerSyncFlourish(successCount);
             } else {
                 syncStatusEl.textContent = `Complete: ${successCount} synced, ${skippedCount} skipped (no change), ${failCount} failed`;
             }
