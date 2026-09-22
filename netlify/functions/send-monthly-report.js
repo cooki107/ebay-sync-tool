@@ -16,6 +16,12 @@ const CRON_SCHEDULE = '0 7,8 1 * *'; // 07:00 and 08:00 UTC on the 1st of every 
 
 const handler = async function(event, context) {
   try {
+    // Set in Netlify's dashboard when Nathan isn't actively using the tool,
+    // so the scheduled reports go quiet without deleting the cron setup -
+    // unset it (or set to anything else) to resume.
+    if (process.env.REPORTS_PAUSED === 'true') {
+      return { statusCode: 200, body: 'Skipped - reports are paused (REPORTS_PAUSED=true)' };
+    }
     if (!isUkMorningRunTime(new Date())) {
       return { statusCode: 200, body: 'Skipped - not 8am UK local time on this invocation' };
     }
