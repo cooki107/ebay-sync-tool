@@ -5,6 +5,9 @@
 // Report-building/sending logic itself lives in report-shared.js
 // (sendWeeklyReportEmail), shared with send-report-now.js so a missed cron
 // run can be recovered manually - see that file for why.
+//
+// REPORTS_PAUSED is set in Netlify's dashboard, not the repo - see the
+// pause check below.
 
 const { schedule } = require('@netlify/functions');
 const { isUkMorningRunTime, sendWeeklyReportEmail } = require('./report-shared');
